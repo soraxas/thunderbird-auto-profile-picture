@@ -127,7 +127,14 @@ async function installConversation(window, payload) {
     }
     const avatar = popup.querySelector(".authorPicture");
     if (avatar) {
-      avatar.innerHTML = `<img src="${url}" class="autoprofilepictureimg" alt="Auto Profile Picture">`;
+      while (avatar.firstChild) {
+        avatar.removeChild(avatar.firstChild);
+      }
+      const img = document.createElement("img");
+      img.src = url;
+      img.className = "autoprofilepictureimg";
+      img.alt = "Auto Profile Picture";
+      avatar.appendChild(img);
     }
   }
 
@@ -147,12 +154,12 @@ async function installConversation(window, payload) {
       contactInitials.classList.add("contactAvatar");
       contactInitials.classList.add("auto-profile-picture");
       contactInitials.style.backgroundImage = `url("${url}")`;
-      contactInitials.innerHTML = "&nbsp;";
+      contactInitials.textContent = "\u00A0";
     } else {
       let autoProfilePicture = message.querySelector(".auto-profile-picture");
       if (autoProfilePicture) {
         autoProfilePicture.style.backgroundImage = `url("${url}")`;
-        autoProfilePicture.innerHTML = "&nbsp;";
+        autoProfilePicture.textContent = "\u00A0";
       } else {
         console.error("No contactInitials or auto-profile-picture found");
       }
@@ -236,8 +243,8 @@ async function installOnMessageHeader(window, urls) {
           }
           contactInitials.classList.add("contactInitials");
           contactInitials.classList.add("auto-profile-picture");
-          if (contactInitials.innerHTML != url.replace("//INITIAL:", "")) {
-            contactInitials.innerHTML = url.replace("//INITIAL:", "");
+          if (contactInitials.textContent !== url.replace("//INITIAL:", "")) {
+            contactInitials.textContent = url.replace("//INITIAL:", "");
           }
           if (initialsColor) {
             recipientAvatar.style.background = initialsColor;
@@ -424,10 +431,10 @@ function installOnRow(document, urlOrObj, row, temporary) {
     if (initialsColor) {
       recipientAvatar.style.background = initialsColor;
     }
-    if (contactInitials.innerHTML === url.replace("//INITIAL:", "")) {
+    if (contactInitials.textContent === url.replace("//INITIAL:", "")) {
       return false;
     }
-    contactInitials.innerHTML = url.replace("//INITIAL:", "");
+    contactInitials.textContent = url.replace("//INITIAL:", "");
   } else {
     return false;
   }
@@ -461,7 +468,7 @@ async function getRowFirstId(rows) {
     let minimumRowKey = Math.min(...rowKeys);
     let row = rows.get(minimumRowKey);
     return parseInt(row.id.replace("threadTree-row", ""));
-  } catch (error) {}
+  } catch (error) { }
 
   try {
     let row = rows[0][1];
@@ -481,7 +488,7 @@ async function getTotalMessagesView(window) {
   let { document } = window;
   try {
     return await window.gFolder.getTotalMessages(false);
-  } catch (e) {}
+  } catch (e) { }
   try {
     let counter = document.getElementById("threadPaneFolderCount");
     let data = JSON.parse(counter.dataset.l10nArgs);
@@ -567,7 +574,7 @@ function installInboxList(window, urls, rows, offset, temporary) {
 
     rows = new Map([...rows].map(([key, value], index) => {
       if (removedRowsKeys.includes(key - 1)) {
-        let [, removedRow] = removedRows.find(([index, value]) => index === key-1);
+        let [, removedRow] = removedRows.find(([index, value]) => index === key - 1);
         return [index + indexShift, [removedRow, value]];
       }
       return [index + indexShift, value];
@@ -751,9 +758,9 @@ function setupEventListeners(threadTree, eventsToListen, window) {
 
     const observer = new window.MutationObserver((mutations) => {
       for (const mutation of mutations) {
-        if (mutation.target.classList.contains("recipient-avatar") || 
-            mutation.target.classList.contains("contactInitials") || 
-            (mutation.target.alt && mutation.target.alt.includes("Auto Profile Picture"))) {
+        if (mutation.target.classList.contains("recipient-avatar") ||
+          mutation.target.classList.contains("contactInitials") ||
+          (mutation.target.alt && mutation.target.alt.includes("Auto Profile Picture"))) {
           // mutations caused by the extension
           continue;
         }
