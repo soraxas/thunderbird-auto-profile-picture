@@ -562,6 +562,10 @@ function installInboxList(window, urls, rows, offset, temporary) {
         removedRows.push([key, value]);
         return false;
       }
+      if (value.getAttribute("data-properties") && value.getAttribute("data-properties").includes("imapdeleted")) {
+        removedRows.push([key, value]);
+        return false;
+      }
       return true;
     }));
 
