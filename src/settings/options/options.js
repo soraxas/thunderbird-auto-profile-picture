@@ -27,14 +27,14 @@ async function printCacheSize(domElement) {
   } else {
     iconsText = " (" + browser.i18n.getMessage("multipleIcons", iconsCount) + ")";
   }
-  domElement.innerHTML = size + iconsText;
+  domElement.textContent = size + iconsText;
 }
 
 async function clearCache() {
   await cache.clearCache();
   printCacheSize(cacheSizeElement);
   clearCacheButton.disabled = true;
-  clearCacheButton.innerHTML = browser.i18n.getMessage("cacheCleared");
+  clearCacheButton.textContent = browser.i18n.getMessage("cacheCleared");
 }
 
 function initOptions() {
@@ -61,16 +61,23 @@ async function fetchProfilePicture() {
   fetchButton.disabled = true;
   profilePictureDiv.setAttribute("aria-busy", "true");
   profilePictureDiv.style.display = "flex";
-  profilePictureDiv.innerHTML = "";
+
+  while (profilePictureDiv.firstChild) {
+    profilePictureDiv.removeChild(profilePictureDiv.firstChild);
+  }
 
   const mail = await Author.fromAuthor(emailInput.value);
   const fetcher = new ProfilePictureFetcher(window, mail, "duckduckgo", true);
   const url = await fetcher.getAvatar();
 
   if (!url) {
-    profilePictureDiv.innerHTML = browser.i18n.getMessage("profilePictureNotFound");
+    profilePictureDiv.textContent = browser.i18n.getMessage("profilePictureNotFound");
   } else {
-    profilePictureDiv.innerHTML = `<img src="${url}" width="100" height="100">`;
+    const img = document.createElement("img");
+    img.src = url;
+    img.width = 100;
+    img.height = 100;
+    profilePictureDiv.appendChild(img);
   }
   fetchButton.disabled = false;
   profilePictureDiv.removeAttribute("aria-busy");
