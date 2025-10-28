@@ -32,10 +32,15 @@ export default class ProfilePictureFetcher {
   /**
    * Converts a blob to a URL
    * @param {Blob} blob blob to convert to URL
-   * @returns {string} URL of the blob
+   * @returns {Promise<string>} URL of the blob (data URL)
    */
-  blobToUrl(blob) {
-    return URL.createObjectURL(blob);
+  async blobToUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
   }
 
   /**
@@ -237,12 +242,12 @@ export default class ProfilePictureFetcher {
   /**
    * Fetches the avatar in the specified format
    * @param {string} format Format of the avatar ("url" or "file")
-   * @returns {string|File|null} URL or File object of the avatar or null if not found
+   * @returns {Promise<string|File|null>} URL or File object of the avatar or null if not found
    */
   async getAvatar(format = "url") {
     let blob = await this.getAvatarBlob();
     if (blob) {
-      return format === "file" ? this.blobToFile(blob) : this.blobToUrl(blob);
+      return format === "file" ? this.blobToFile(blob) : await this.blobToUrl(blob);
     }
     return null;
   }

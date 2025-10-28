@@ -73,11 +73,40 @@ async function fetchProfilePicture() {
   if (!url) {
     profilePictureDiv.textContent = browser.i18n.getMessage("profilePictureNotFound");
   } else {
-    const img = document.createElement("img");
-    img.src = url;
-    img.width = 100;
-    img.height = 100;
-    profilePictureDiv.appendChild(img);
+    // Use canvas to bypass CSP restrictions
+    const canvas = document.createElement("canvas");
+    canvas.width = 100;
+    canvas.height = 100;
+    canvas.style.borderRadius = "8px";
+    profilePictureDiv.appendChild(canvas);
+
+    try {
+      // Decode data URL and draw to canvas without using img.src
+      const matches = url.match(/^data:([^;]+);base64,(.+)$/);
+      if (matches) {
+        const mimeType = matches[1];
+        const base64Data = matches[2];
+
+        // Use window.atob for better compatibility
+        const atobFn = window.atob || atob;
+        const binaryString = atobFn(base64Data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        const BlobConstructor = window.Blob || Blob;
+        const blob = new BlobConstructor([bytes], { type: mimeType });
+        const createImageBitmapFn = window.createImageBitmap || createImageBitmap;
+        createImageBitmapFn(blob).then(imageBitmap => {
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(imageBitmap, 0, 0, 100, 100);
+        });
+      }
+    } catch (error) {
+      console.error("Error drawing image:", error);
+      profilePictureDiv.textContent = "Error displaying image";
+    }
   }
   fetchButton.disabled = false;
   profilePictureDiv.removeAttribute("aria-busy");

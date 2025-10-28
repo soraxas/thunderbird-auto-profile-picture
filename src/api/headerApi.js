@@ -110,59 +110,130 @@ async function extractMailsThunderbirdConversation(window) {
 }
 
 /**
+ * Helper function to draw a data URL directly to canvas without triggering CSP
+ * @param {string} dataUrl - The data URL to draw
+ * @param {HTMLCanvasElement} canvas - The canvas element to draw to
+ * @param {number} width - Target width
+ * @param {number} height - Target height
+ * @param {Window} win - The window object for accessing global functions
+ */
+async function drawDataUrlToCanvas(dataUrl, canvas, width, height, win) {
+  try {
+    // Extract base64 data and mime type
+    const matches = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+    if (!matches) {
+      console.error("Invalid data URL format");
+      return false;
+    }
+
+    const mimeType = matches[1];
+    const base64Data = matches[2];
+
+    // Decode base64 to binary - use window.atob in case atob is not global
+    const atobFn = win.atob || atob;
+    const binaryString = atobFn(base64Data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    // Create blob and use createImageBitmap (no CSP check!)
+    const BlobConstructor = win.Blob || Blob;
+    const blob = new BlobConstructor([bytes], { type: mimeType });
+    const createImageBitmapFn = win.createImageBitmap || createImageBitmap;
+    const imageBitmap = await createImageBitmapFn(blob);
+
+    // Draw to canvas
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(imageBitmap, 0, 0, width, height);
+
+    return true;
+  } catch (error) {
+    console.error("Error drawing data URL to canvas:", error);
+    return false;
+  }
+}
+
+/**
  * Installs avatars for Thunderbird conversation.
  *
  * @param {Object} window - The window object.
  * @param {Object} payload - The payload object containing URLs and data.
  */
 async function installConversation(window, payload) {
-  function insertPictureInPopup(popup, url) {
+  async function insertPictureInPopup(popup, url) {
+    const avatar = popup.querySelector(".authorPicture");
+    if (!avatar) return;
+
+    // Remove old content
+    while (avatar.firstChild) {
+      avatar.removeChild(avatar.firstChild);
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 48;
+    canvas.height = 48;
+    canvas.style.width = "100%";
+    canvas.style.height = "100%";
+    avatar.appendChild(canvas);
+
     if (!url || url === "") {
-      let wrongAvatar = popup.querySelector(".autoprofilepictureimg");
-      if (wrongAvatar) {
-        wrongAvatar.classList.remove("autoprofilepictureimg");
-        wrongAvatar.src = "chrome://messenger/skin/addressbook/icons/contact-generic.svg";
-      }
+      // Use default icon - chrome:// URLs are allowed by CSP
+      const img = document.createElement('img');
+      img.onload = () => {
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, 48, 48);
+      };
+      img.src = "chrome://messenger/skin/addressbook/icons/contact-generic.svg";
       return;
     }
-    const avatar = popup.querySelector(".authorPicture");
-    if (avatar) {
-      while (avatar.firstChild) {
-        avatar.removeChild(avatar.firstChild);
-      }
-      const img = document.createElement("img");
-      img.src = url;
-      img.className = "autoprofilepictureimg";
-      img.alt = "Auto Profile Picture";
-      avatar.appendChild(img);
-    }
+
+    // Use helper to bypass CSP restrictions
+    await drawDataUrlToCanvas(url, canvas, 48, 48, window);
   }
 
-  function replaceAuthorPictureInMessage(message, url) {
+  async function replaceAuthorPictureInMessage(message, url) {
     if (!url || url === "") {
       let wrongInitials = message.querySelector("abbr.auto-profile-picture");
       if (wrongInitials) {
         wrongInitials.classList.remove("auto-profile-picture");
         wrongInitials.classList.add("contactInitials");
-        wrongInitials.style.backgroundImage = null;
+        // Remove canvas if it exists
+        const canvas = wrongInitials.querySelector("canvas");
+        if (canvas) {
+          wrongInitials.removeChild(canvas);
+        }
       }
       return;
     }
-    let contactInitials = message.querySelector(".contactInitials");
-    if (contactInitials) {
-      contactInitials.classList.remove("contactInitials");
-      contactInitials.classList.add("contactAvatar");
-      contactInitials.classList.add("auto-profile-picture");
-      contactInitials.style.backgroundImage = `url("${url}")`;
-      contactInitials.textContent = "\u00A0";
-    } else {
-      let autoProfilePicture = message.querySelector(".auto-profile-picture");
-      if (autoProfilePicture) {
-        autoProfilePicture.style.backgroundImage = `url("${url}")`;
-        autoProfilePicture.textContent = "\u00A0";
-      } else {
-        console.error("No contactInitials or auto-profile-picture found");
+
+    let targetElement = message.querySelector(".contactInitials") || message.querySelector(".auto-profile-picture");
+    if (targetElement) {
+      targetElement.classList.remove("contactInitials");
+      targetElement.classList.add("contactAvatar");
+      targetElement.classList.add("auto-profile-picture");
+      targetElement.textContent = "";
+
+      // Remove old canvas if it exists
+      const oldCanvas = targetElement.querySelector("canvas");
+      if (oldCanvas) {
+        targetElement.removeChild(oldCanvas);
       }
+
+      // Create canvas to bypass CSP
+      const canvas = document.createElement("canvas");
+      canvas.width = 32;
+      canvas.height = 32;
+      canvas.style.width = "100%";
+      canvas.style.height = "100%";
+      canvas.style.borderRadius = "50%";
+
+      targetElement.appendChild(canvas);
+
+      // Use helper to bypass CSP restrictions
+      await drawDataUrlToCanvas(url, canvas, 32, 32, window);
+    } else {
+      console.error("No contactInitials or auto-profile-picture found");
     }
   }
 
@@ -180,7 +251,7 @@ async function installConversation(window, payload) {
   for (let popup of popups) {
     let mail = popupValues[popupNumber].mail;
     if (mail) {
-      insertPictureInPopup(popup, conversationMailCache[mail]);
+      await insertPictureInPopup(popup, conversationMailCache[mail]);
     }
     popupNumber++;
   }
@@ -205,7 +276,7 @@ async function installConversation(window, payload) {
   for (let message of messages) {
     let mail = popupsWithMostCommonLeftValue[messageNumber].mail;
     if (mail) {
-      replaceAuthorPictureInMessage(message, conversationMailCache[mail]);
+      await replaceAuthorPictureInMessage(message, conversationMailCache[mail]);
     }
     messageNumber++;
   }
@@ -231,7 +302,8 @@ async function installOnMessageHeader(window, urls) {
 
   let recipientAvatars = document.querySelectorAll(".recipient-avatar");
   let result = { status: "failed", error: "No URL found" };
-  recipientAvatars.forEach((recipientAvatar) => {
+
+  for (const recipientAvatar of recipientAvatars) {
     if (!recipientAvatar.classList.contains("has-avatar")) {
       if (!url || url === "" || url.includes("//INITIAL:")) {
         if (url && url.includes("//INITIAL:")) {
@@ -252,23 +324,33 @@ async function installOnMessageHeader(window, urls) {
           recipientAvatar.appendChild(contactInitials);
         }
         result = { status: "failed", error: "No URL found" };
-        return;
+        continue;
       }
-      if (recipientAvatar.firstChild) {
+      // Remove old content
+      while (recipientAvatar.firstChild) {
         recipientAvatar.removeChild(recipientAvatar.firstChild);
       }
-      let img = document.createElement("img");
-      img.src = url;
-      img.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
-      img.setAttribute("data-l10n-id", "message-header-recipient-avatar");
-      recipientAvatar.appendChild(img);
+
+      // Use canvas to bypass CSP restrictions
+      const canvas = document.createElement("canvas");
+      const size = 34; // Default avatar size
+      canvas.width = size;
+      canvas.height = size;
+      canvas.style.width = "100%";
+      canvas.style.height = "100%";
+      canvas.style.borderRadius = "50%";
+
+      recipientAvatar.appendChild(canvas);
+
+      // Use helper to bypass CSP restrictions
+      await drawDataUrlToCanvas(url, canvas, size, size, window);
+
       recipientAvatar.classList.add("has-avatar");
-      recipientAvatar.style.background = null;
       result = { status: "success" };
     } else {
       result = { status: "success" };
     }
-  });
+  }
   if (recipientAvatars.length > 0) {
     return result;
   }
@@ -376,9 +458,9 @@ function uninstallCss(window) {
  * @param {string|Object} urlOrObj - The URL of the avatar image or an object with value and color for initials.
  * @param {HTMLElement} row - The row element where the avatar or initials will be installed.
  * @param {boolean} temporary - A flag indicating whether the avatar is temporary.
- * @returns {boolean} - Returns true if the avatar or initials were successfully installed, otherwise false.
+ * @returns {Promise<boolean>} - Returns true if the avatar or initials were successfully installed, otherwise false.
  */
-function installOnRow(document, urlOrObj, row, temporary) {
+async function installOnRow(document, urlOrObj, row, temporary) {
   let recipientAvatar = row.querySelector(".recipient-avatar");
   const hasNoAvatar = !recipientAvatar;
   if (hasNoAvatar) {
@@ -386,14 +468,11 @@ function installOnRow(document, urlOrObj, row, temporary) {
     recipientAvatar.classList.add("recipient-avatar");
   }
 
-  let img = recipientAvatar.querySelector("img");
-  const hasNoImg = !img;
-  if (hasNoImg) {
-    img = document.createElement("img");
-    img.alt = "Auto Profile Picture";
-    img.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
-    recipientAvatar.appendChild(img);
-  } else if (typeof urlOrObj === "string" && img.src === urlOrObj) {
+  // Check if image is already installed using background-image style
+  const currentBackgroundImage = recipientAvatar.style.backgroundImage;
+  const expectedBackgroundImage = typeof urlOrObj === "string" ? `url("${urlOrObj}")` : null;
+
+  if (currentBackgroundImage && expectedBackgroundImage && currentBackgroundImage === expectedBackgroundImage) {
     // Image already installed and correct
     return false;
   }
@@ -408,26 +487,45 @@ function installOnRow(document, urlOrObj, row, temporary) {
   }
 
   if (url && url !== "" && !url.includes("//INITIAL:")) {
-    // Valid image URL
+    // Valid image URL - use canvas to bypass CSP restrictions
     recipientAvatar.classList.add("has-avatar");
     recipientAvatar.classList.remove("no-avatar");
-    img.src = url;
-    if (contactInitials) {
-      // Remove initials if they exist
-      recipientAvatar.removeChild(contactInitials);
-      recipientAvatar.style.background = null;
+
+    // Remove old content
+    while (recipientAvatar.firstChild) {
+      recipientAvatar.removeChild(recipientAvatar.firstChild);
     }
-  } else if (url && url.includes("//INITIAL:") && (hasNoImg || !temporary)) {
+
+    // Create canvas element
+    const canvas = document.createElement("canvas");
+    const win = document.defaultView || window;
+    const size = parseInt(win.getComputedStyle(recipientAvatar).width) || 34;
+    canvas.width = size;
+    canvas.height = size;
+    canvas.style.width = "100%";
+    canvas.style.height = "100%";
+    canvas.style.borderRadius = "50%";
+
+    recipientAvatar.appendChild(canvas);
+
+    // Use helper to bypass CSP restrictions
+    await drawDataUrlToCanvas(url, canvas, size, size, win);
+  } else if (url && url.includes("//INITIAL:") && (!currentBackgroundImage || !temporary)) {
     // Valid initials without image or not temporary (ie. no image has been found)
     recipientAvatar.classList.add("no-avatar");
     recipientAvatar.classList.remove("has-avatar");
+    recipientAvatar.style.backgroundImage = "";
     if (!contactInitials) {
       contactInitials = document.createElement("span");
       contactInitials.classList.add("contactInitials");
       contactInitials.classList.add("auto-profile-picture");
       recipientAvatar.appendChild(contactInitials);
     }
-    recipientAvatar.removeChild(img);
+    // Remove any img elements that might exist
+    const oldImg = recipientAvatar.querySelector("img");
+    if (oldImg) {
+      recipientAvatar.removeChild(oldImg);
+    }
     if (initialsColor) {
       recipientAvatar.style.background = initialsColor;
     }
@@ -542,9 +640,9 @@ function getExpandedDummyRowsNumber(threadTree, maxIndex) {
  * @param {Map} rows - The rows map.
  * @param {number} offset - The offset for the rows.
  * @param {boolean} temporary - A flag indicating whether the avatars are temporary.
- * @returns {Object} - An object containing the status.
+ * @returns {Promise<Object>} - An object containing the status.
  */
-function installInboxList(window, urls, rows, offset, temporary) {
+async function installInboxList(window, urls, rows, offset, temporary) {
   let { document } = window;
   let nbInstalled = 0;
 
@@ -606,7 +704,7 @@ function installInboxList(window, urls, rows, offset, temporary) {
       continue;
     }
 
-    let res = installOnRow(document, url, row, temporary);
+    let res = await installOnRow(document, url, row, temporary);
 
     if (res) {
       nbInstalled++;
@@ -655,16 +753,16 @@ const INBOX_LIST_TIMEOUT = 1000;
  * @param {Array} payload - The array of initials.
  * @param {Map} rows - The rows map.
  * @param {number} offset - The offset for the rows.
- * @returns {Object} - An object containing the status.
+ * @returns {Promise<Object>} - An object containing the status.
  */
-function handleInitials(window, payload, rows, offset) {
+async function handleInitials(window, payload, rows, offset) {
   window.clearTimeout(window.timeoutInitials);
-  window.timeoutInitials = window.setTimeout(() => {
+  window.timeoutInitials = window.setTimeout(async () => {
     // console.log("initials setTimeout installInboxList call");
-    installInboxList(window, payload, rows, offset, true);
+    await installInboxList(window, payload, rows, offset, true);
   }, INITIALS_TIMEOUT);
 
-  installInboxList(window, payload, rows, offset, true);
+  await installInboxList(window, payload, rows, offset, true);
   return { status: "success" };
 }
 
@@ -681,10 +779,10 @@ async function handleInboxList(window, payload, threadTree, offset) {
   window.clearTimeout(window.timeoutInboxList);
 
   try {
-    window.timeoutInboxList = window.setTimeout(() => {
-      installInboxList(window, payload, threadTree._rows, offset, false);
+    window.timeoutInboxList = window.setTimeout(async () => {
+      await installInboxList(window, payload, threadTree._rows, offset, false);
     }, INBOX_LIST_TIMEOUT);
-    installInboxList(window, payload, threadTree._rows, offset, false);
+    await installInboxList(window, payload, threadTree._rows, offset, false);
 
     if (offset < 15) {
       const eventType = await initializeAllEventListeners(threadTree, payload.length, window);
