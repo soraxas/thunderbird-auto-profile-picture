@@ -57,6 +57,23 @@ function setContactsIntegration() {
   browser.runtime.sendMessage({ action: "refreshSettings" });
 }
 
+/**
+ * Gets the Thunderbird version number
+ * @returns {Promise<number>} - The major version number of Thunderbird
+ */
+async function getThunderbirdVersion() {
+  try {
+    const info = await browser.runtime.getBrowserInfo();
+    console.log("Thunderbird version:", info.version);
+    const majorVersion = parseInt(info.version.split('.')[0], 10);
+    return majorVersion;
+  } catch (error) {
+    console.error("Error getting Thunderbird version:", error);
+    // Default to a high version number to use canvas approach if detection fails
+    return 145;
+  }
+}
+
 async function fetchProfilePicture() {
   fetchButton.disabled = true;
   profilePictureDiv.setAttribute("aria-busy", "true");
@@ -73,39 +90,51 @@ async function fetchProfilePicture() {
   if (!url) {
     profilePictureDiv.textContent = browser.i18n.getMessage("profilePictureNotFound");
   } else {
-    // Use canvas to bypass CSP restrictions
-    const canvas = document.createElement("canvas");
-    canvas.width = 100;
-    canvas.height = 100;
-    canvas.style.borderRadius = "8px";
-    profilePictureDiv.appendChild(canvas);
+    const tbVersion = await getThunderbirdVersion();
+    const useCanvas = tbVersion === 145;
 
-    try {
-      // Decode data URL and draw to canvas without using img.src
-      const matches = url.match(/^data:([^;]+);base64,(.+)$/);
-      if (matches) {
-        const mimeType = matches[1];
-        const base64Data = matches[2];
+    if (useCanvas) {
+      // TB 145: Use canvas to bypass CSP restrictions
+      const canvas = document.createElement("canvas");
+      canvas.width = 100;
+      canvas.height = 100;
+      canvas.style.borderRadius = "8px";
+      profilePictureDiv.appendChild(canvas);
 
-        // Use window.atob for better compatibility
-        const atobFn = window.atob || atob;
-        const binaryString = atobFn(base64Data);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
+      try {
+        // Decode data URL and draw to canvas without using img.src
+        const matches = url.match(/^data:([^;]+);base64,(.+)$/);
+        if (matches) {
+          const mimeType = matches[1];
+          const base64Data = matches[2];
+
+          // Use window.atob for better compatibility
+          const atobFn = window.atob || atob;
+          const binaryString = atobFn(base64Data);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+
+          const BlobConstructor = window.Blob || Blob;
+          const blob = new BlobConstructor([bytes], { type: mimeType });
+          const createImageBitmapFn = window.createImageBitmap || createImageBitmap;
+          createImageBitmapFn(blob).then(imageBitmap => {
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(imageBitmap, 0, 0, 100, 100);
+          });
         }
-
-        const BlobConstructor = window.Blob || Blob;
-        const blob = new BlobConstructor([bytes], { type: mimeType });
-        const createImageBitmapFn = window.createImageBitmap || createImageBitmap;
-        createImageBitmapFn(blob).then(imageBitmap => {
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(imageBitmap, 0, 0, 100, 100);
-        });
+      } catch (error) {
+        console.error("Error drawing image:", error);
+        profilePictureDiv.textContent = "Error displaying image";
       }
-    } catch (error) {
-      console.error("Error drawing image:", error);
-      profilePictureDiv.textContent = "Error displaying image";
+    } else {
+      // TB < 145 and TB 146+: Use img element directly
+      const img = document.createElement("img");
+      img.src = url;
+      img.width = 100;
+      img.height = 100;
+      profilePictureDiv.appendChild(img);
     }
   }
   fetchButton.disabled = false;

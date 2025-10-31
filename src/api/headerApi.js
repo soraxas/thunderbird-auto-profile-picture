@@ -110,6 +110,24 @@ async function extractMailsThunderbirdConversation(window) {
 }
 
 /**
+ * Gets the Thunderbird version number
+ * @returns {number} - The major version number of Thunderbird
+ */
+function getThunderbirdVersion() {
+  try {
+    const appInfo = Services.appinfo;
+    const version = appInfo.version;
+    console.log("Thunderbird version:", version);
+    const majorVersion = parseInt(version.split('.')[0], 10);
+    return majorVersion;
+  } catch (error) {
+    console.error("Error getting Thunderbird version:", error);
+    // Default to a high version number to use canvas approach if detection fails
+    return 145;
+  }
+}
+
+/**
  * Helper function to draw a data URL directly to canvas without triggering CSP
  * @param {string} dataUrl - The data URL to draw
  * @param {HTMLCanvasElement} canvas - The canvas element to draw to
@@ -161,6 +179,9 @@ async function drawDataUrlToCanvas(dataUrl, canvas, width, height, win) {
  * @param {Object} payload - The payload object containing URLs and data.
  */
 async function installConversation(window, payload) {
+  const tbVersion = getThunderbirdVersion();
+  const useCanvas = tbVersion === 145;
+
   async function insertPictureInPopup(popup, url) {
     const avatar = popup.querySelector(".authorPicture");
     if (!avatar) return;
@@ -170,26 +191,50 @@ async function installConversation(window, payload) {
       avatar.removeChild(avatar.firstChild);
     }
 
-    const canvas = document.createElement("canvas");
-    canvas.width = 48;
-    canvas.height = 48;
-    canvas.style.width = "100%";
-    canvas.style.height = "100%";
-    avatar.appendChild(canvas);
-
     if (!url || url === "") {
-      // Use default icon - chrome:// URLs are allowed by CSP
-      const img = document.createElement('img');
-      img.onload = () => {
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0, 48, 48);
-      };
-      img.src = "chrome://messenger/skin/addressbook/icons/contact-generic.svg";
+      if (useCanvas) {
+        // TB 145: Use canvas with default icon (CSP workaround)
+        const canvas = document.createElement("canvas");
+        canvas.width = 48;
+        canvas.height = 48;
+        canvas.style.width = "100%";
+        canvas.style.height = "100%";
+        avatar.appendChild(canvas);
+
+        const img = document.createElement('img');
+        img.onload = () => {
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, 48, 48);
+        };
+        img.src = "chrome://messenger/skin/addressbook/icons/contact-generic.svg";
+      } else {
+        // TB < 145 and TB 146+: Use img element directly
+        const wrongAvatar = popup.querySelector(".autoprofilepictureimg");
+        if (wrongAvatar) {
+          wrongAvatar.classList.remove("autoprofilepictureimg");
+          wrongAvatar.src = "chrome://messenger/skin/addressbook/icons/contact-generic.svg";
+        }
+      }
       return;
     }
 
-    // Use helper to bypass CSP restrictions
-    await drawDataUrlToCanvas(url, canvas, 48, 48, window);
+    if (useCanvas) {
+      // TB 145: Use canvas to bypass CSP restrictions
+      const canvas = document.createElement("canvas");
+      canvas.width = 48;
+      canvas.height = 48;
+      canvas.style.width = "100%";
+      canvas.style.height = "100%";
+      avatar.appendChild(canvas);
+      await drawDataUrlToCanvas(url, canvas, 48, 48, window);
+    } else {
+      // TB < 145 and TB 146+: Use img element directly
+      const img = document.createElement("img");
+      img.src = url;
+      img.className = "autoprofilepictureimg";
+      img.alt = "Auto Profile Picture";
+      avatar.appendChild(img);
+    }
   }
 
   async function replaceAuthorPictureInMessage(message, url) {
@@ -198,42 +243,67 @@ async function installConversation(window, payload) {
       if (wrongInitials) {
         wrongInitials.classList.remove("auto-profile-picture");
         wrongInitials.classList.add("contactInitials");
-        // Remove canvas if it exists
-        const canvas = wrongInitials.querySelector("canvas");
-        if (canvas) {
-          wrongInitials.removeChild(canvas);
+        if (useCanvas) {
+          // Remove canvas if it exists
+          const canvas = wrongInitials.querySelector("canvas");
+          if (canvas) {
+            wrongInitials.removeChild(canvas);
+          }
+        } else {
+          wrongInitials.style.backgroundImage = null;
         }
       }
       return;
     }
 
-    let targetElement = message.querySelector(".contactInitials") || message.querySelector(".auto-profile-picture");
-    if (targetElement) {
-      targetElement.classList.remove("contactInitials");
-      targetElement.classList.add("contactAvatar");
-      targetElement.classList.add("auto-profile-picture");
-      targetElement.textContent = "";
+    if (useCanvas) {
+      // TB 145: Use canvas approach (CSP workaround)
+      let targetElement = message.querySelector(".contactInitials") || message.querySelector(".auto-profile-picture");
+      if (targetElement) {
+        targetElement.classList.remove("contactInitials");
+        targetElement.classList.add("contactAvatar");
+        targetElement.classList.add("auto-profile-picture");
+        targetElement.textContent = "";
 
-      // Remove old canvas if it exists
-      const oldCanvas = targetElement.querySelector("canvas");
-      if (oldCanvas) {
-        targetElement.removeChild(oldCanvas);
+        // Remove old canvas if it exists
+        const oldCanvas = targetElement.querySelector("canvas");
+        if (oldCanvas) {
+          targetElement.removeChild(oldCanvas);
+        }
+
+        // Create canvas to bypass CSP
+        const canvas = document.createElement("canvas");
+        canvas.width = 32;
+        canvas.height = 32;
+        canvas.style.width = "100%";
+        canvas.style.height = "100%";
+        canvas.style.borderRadius = "50%";
+
+        targetElement.appendChild(canvas);
+
+        // Use helper to bypass CSP restrictions
+        await drawDataUrlToCanvas(url, canvas, 32, 32, window);
+      } else {
+        console.error("No contactInitials or auto-profile-picture found");
       }
-
-      // Create canvas to bypass CSP
-      const canvas = document.createElement("canvas");
-      canvas.width = 32;
-      canvas.height = 32;
-      canvas.style.width = "100%";
-      canvas.style.height = "100%";
-      canvas.style.borderRadius = "50%";
-
-      targetElement.appendChild(canvas);
-
-      // Use helper to bypass CSP restrictions
-      await drawDataUrlToCanvas(url, canvas, 32, 32, window);
     } else {
-      console.error("No contactInitials or auto-profile-picture found");
+      // TB < 145 and TB 146+: Use background-image approach
+      let contactInitials = message.querySelector(".contactInitials");
+      if (contactInitials) {
+        contactInitials.classList.remove("contactInitials");
+        contactInitials.classList.add("contactAvatar");
+        contactInitials.classList.add("auto-profile-picture");
+        contactInitials.style.backgroundImage = `url("${url}")`;
+        contactInitials.textContent = "\u00A0";
+      } else {
+        let autoProfilePicture = message.querySelector(".auto-profile-picture");
+        if (autoProfilePicture) {
+          autoProfilePicture.style.backgroundImage = `url("${url}")`;
+          autoProfilePicture.textContent = "\u00A0";
+        } else {
+          console.error("No contactInitials or auto-profile-picture found");
+        }
+      }
     }
   }
 
@@ -300,6 +370,9 @@ async function installOnMessageHeader(window, urls) {
     initialsColor = urlOrObj.color;
   }
 
+  const tbVersion = getThunderbirdVersion();
+  const useCanvas = tbVersion === 145;
+
   let recipientAvatars = document.querySelectorAll(".recipient-avatar");
   let result = { status: "failed", error: "No URL found" };
 
@@ -326,24 +399,35 @@ async function installOnMessageHeader(window, urls) {
         result = { status: "failed", error: "No URL found" };
         continue;
       }
+
       // Remove old content
       while (recipientAvatar.firstChild) {
         recipientAvatar.removeChild(recipientAvatar.firstChild);
       }
 
-      // Use canvas to bypass CSP restrictions
-      const canvas = document.createElement("canvas");
-      const size = 34; // Default avatar size
-      canvas.width = size;
-      canvas.height = size;
-      canvas.style.width = "100%";
-      canvas.style.height = "100%";
-      canvas.style.borderRadius = "50%";
+      if (useCanvas) {
+        // TB 145: Use canvas to bypass CSP restrictions
+        const canvas = document.createElement("canvas");
+        const size = 34; // Default avatar size
+        canvas.width = size;
+        canvas.height = size;
+        canvas.style.width = "100%";
+        canvas.style.height = "100%";
+        canvas.style.borderRadius = "50%";
 
-      recipientAvatar.appendChild(canvas);
+        recipientAvatar.appendChild(canvas);
 
-      // Use helper to bypass CSP restrictions
-      await drawDataUrlToCanvas(url, canvas, size, size, window);
+        // Use helper to bypass CSP restrictions
+        await drawDataUrlToCanvas(url, canvas, size, size, window);
+      } else {
+        // TB < 145 and TB 146+: Use img element directly
+        let img = document.createElement("img");
+        img.src = url;
+        img.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
+        img.setAttribute("data-l10n-id", "message-header-recipient-avatar");
+        recipientAvatar.appendChild(img);
+        recipientAvatar.style.background = null;
+      }
 
       recipientAvatar.classList.add("has-avatar");
       result = { status: "success" };
@@ -461,23 +545,15 @@ function uninstallCss(window) {
  * @returns {Promise<boolean>} - Returns true if the avatar or initials were successfully installed, otherwise false.
  */
 async function installOnRow(document, urlOrObj, row, temporary) {
+  const tbVersion = getThunderbirdVersion();
+  const useCanvas = tbVersion === 145;
+
   let recipientAvatar = row.querySelector(".recipient-avatar");
   const hasNoAvatar = !recipientAvatar;
   if (hasNoAvatar) {
     recipientAvatar = document.createElement("div");
     recipientAvatar.classList.add("recipient-avatar");
   }
-
-  // Check if image is already installed using background-image style
-  const currentBackgroundImage = recipientAvatar.style.backgroundImage;
-  const expectedBackgroundImage = typeof urlOrObj === "string" ? `url("${urlOrObj}")` : null;
-
-  if (currentBackgroundImage && expectedBackgroundImage && currentBackgroundImage === expectedBackgroundImage) {
-    // Image already installed and correct
-    return false;
-  }
-
-  let contactInitials = recipientAvatar.querySelector(".contactInitials");
 
   let url = urlOrObj;
   let initialsColor = null;
@@ -486,55 +562,116 @@ async function installOnRow(document, urlOrObj, row, temporary) {
     initialsColor = urlOrObj.color;
   }
 
-  if (url && url !== "" && !url.includes("//INITIAL:")) {
-    // Valid image URL - use canvas to bypass CSP restrictions
-    recipientAvatar.classList.add("has-avatar");
-    recipientAvatar.classList.remove("no-avatar");
+  if (useCanvas) {
+    // TB 145: Use canvas approach (CSP workaround)
+    // Check if image is already installed using background-image style
+    const currentBackgroundImage = recipientAvatar.style.backgroundImage;
+    const expectedBackgroundImage = typeof urlOrObj === "string" ? `url("${urlOrObj}")` : null;
 
-    // Remove old content
-    while (recipientAvatar.firstChild) {
-      recipientAvatar.removeChild(recipientAvatar.firstChild);
-    }
-
-    // Create canvas element
-    const canvas = document.createElement("canvas");
-    const win = document.defaultView || window;
-    const size = parseInt(win.getComputedStyle(recipientAvatar).width) || 34;
-    canvas.width = size;
-    canvas.height = size;
-    canvas.style.width = "100%";
-    canvas.style.height = "100%";
-    canvas.style.borderRadius = "50%";
-
-    recipientAvatar.appendChild(canvas);
-
-    // Use helper to bypass CSP restrictions
-    await drawDataUrlToCanvas(url, canvas, size, size, win);
-  } else if (url && url.includes("//INITIAL:") && (!currentBackgroundImage || !temporary)) {
-    // Valid initials without image or not temporary (ie. no image has been found)
-    recipientAvatar.classList.add("no-avatar");
-    recipientAvatar.classList.remove("has-avatar");
-    recipientAvatar.style.backgroundImage = "";
-    if (!contactInitials) {
-      contactInitials = document.createElement("span");
-      contactInitials.classList.add("contactInitials");
-      contactInitials.classList.add("auto-profile-picture");
-      recipientAvatar.appendChild(contactInitials);
-    }
-    // Remove any img elements that might exist
-    const oldImg = recipientAvatar.querySelector("img");
-    if (oldImg) {
-      recipientAvatar.removeChild(oldImg);
-    }
-    if (initialsColor) {
-      recipientAvatar.style.background = initialsColor;
-    }
-    if (contactInitials.textContent === url.replace("//INITIAL:", "")) {
+    if (currentBackgroundImage && expectedBackgroundImage && currentBackgroundImage === expectedBackgroundImage) {
+      // Image already installed and correct
       return false;
     }
-    contactInitials.textContent = url.replace("//INITIAL:", "");
+
+    let contactInitials = recipientAvatar.querySelector(".contactInitials");
+
+    if (url && url !== "" && !url.includes("//INITIAL:")) {
+      // Valid image URL - use canvas to bypass CSP restrictions
+      recipientAvatar.classList.add("has-avatar");
+      recipientAvatar.classList.remove("no-avatar");
+
+      // Remove old content
+      while (recipientAvatar.firstChild) {
+        recipientAvatar.removeChild(recipientAvatar.firstChild);
+      }
+
+      // Create canvas element
+      const canvas = document.createElement("canvas");
+      const win = document.defaultView || window;
+      const size = parseInt(win.getComputedStyle(recipientAvatar).width) || 34;
+      canvas.width = size;
+      canvas.height = size;
+      canvas.style.width = "100%";
+      canvas.style.height = "100%";
+      canvas.style.borderRadius = "50%";
+
+      recipientAvatar.appendChild(canvas);
+
+      // Use helper to bypass CSP restrictions
+      await drawDataUrlToCanvas(url, canvas, size, size, win);
+    } else if (url && url.includes("//INITIAL:") && (!currentBackgroundImage || !temporary)) {
+      // Valid initials without image or not temporary (ie. no image has been found)
+      recipientAvatar.classList.add("no-avatar");
+      recipientAvatar.classList.remove("has-avatar");
+      recipientAvatar.style.backgroundImage = "";
+      if (!contactInitials) {
+        contactInitials = document.createElement("span");
+        contactInitials.classList.add("contactInitials");
+        contactInitials.classList.add("auto-profile-picture");
+        recipientAvatar.appendChild(contactInitials);
+      }
+      // Remove any img elements that might exist
+      const oldImg = recipientAvatar.querySelector("img");
+      if (oldImg) {
+        recipientAvatar.removeChild(oldImg);
+      }
+      if (initialsColor) {
+        recipientAvatar.style.background = initialsColor;
+      }
+      if (contactInitials.textContent === url.replace("//INITIAL:", "")) {
+        return false;
+      }
+      contactInitials.textContent = url.replace("//INITIAL:", "");
+    } else {
+      return false;
+    }
   } else {
-    return false;
+    // TB < 145 and TB 146+: Use img element approach
+    let img = recipientAvatar.querySelector("img");
+    const hasNoImg = !img;
+    if (hasNoImg) {
+      img = document.createElement("img");
+      img.alt = "Auto Profile Picture";
+      img.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
+      recipientAvatar.appendChild(img);
+    } else if (typeof urlOrObj === "string" && img.src === urlOrObj) {
+      // Image already installed and correct
+      return false;
+    }
+
+    let contactInitials = recipientAvatar.querySelector(".contactInitials");
+
+    if (url && url !== "" && !url.includes("//INITIAL:")) {
+      // Valid image URL
+      recipientAvatar.classList.add("has-avatar");
+      recipientAvatar.classList.remove("no-avatar");
+      img.src = url;
+      if (contactInitials) {
+        // Remove initials if they exist
+        recipientAvatar.removeChild(contactInitials);
+        recipientAvatar.style.background = null;
+      }
+    } else if (url && url.includes("//INITIAL:") && (hasNoImg || !temporary)) {
+      // Valid initials without image or not temporary (ie. no image has been found)
+      recipientAvatar.classList.add("no-avatar");
+      recipientAvatar.classList.remove("has-avatar");
+      if (!contactInitials) {
+        contactInitials = document.createElement("span");
+        contactInitials.classList.add("contactInitials");
+        contactInitials.classList.add("auto-profile-picture");
+        recipientAvatar.appendChild(contactInitials);
+      }
+      recipientAvatar.removeChild(img);
+      if (initialsColor) {
+        recipientAvatar.style.background = initialsColor;
+      }
+      if (contactInitials.textContent === url.replace("//INITIAL:", "")) {
+        return false;
+      }
+      contactInitials.textContent = url.replace("//INITIAL:", "");
+    } else {
+      return false;
+    }
   }
 
   if (hasNoAvatar) {
