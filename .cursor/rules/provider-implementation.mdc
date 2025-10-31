@@ -1,0 +1,221 @@
+---
+globs: src/providers/*.js
+---
+
+# Avatar Provider Implementation Guide
+
+## Provider Base Class
+
+All avatar providers must extend [Provider.js](mdc:src/providers/Provider.js) and implement the `getUrl()` method.
+
+## Provider Structure
+
+```javascript
+import Author from "../src/Author.js";
+import Provider, { Scope } from "./Provider.js";
+
+export default class YourProvider extends Provider {
+  constructor() {
+    // Specify scope: Scope.DOMAIN or Scope.EMAIL
+    super("providername", Scope.DOMAIN);
+  }
+
+  /**
+   * Gets the profile picture URL for the given author.
+   * @param {Author} author - The author to get the URL for.
+   * @returns {Promise<string>} The profile picture URL.
+   */
+  async getUrl(author) {
+    // Implementation
+  }
+}
+```
+
+## Provider Scopes
+
+### Scope.DOMAIN
+
+Use for providers that work with domain names (company logos):
+
+- Google (favicon for domain)
+- IconHorse
+- FaviconWebpage
+- Splitbee
+
+```javascript
+constructor() {
+  super("google", Scope.DOMAIN);
+}
+
+async getUrl(author) {
+  const domain = author.getDomain();
+  return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+}
+```
+
+### Scope.EMAIL
+
+Use for providers that work with email addresses (personal avatars):
+
+- Gravatar
+- Libravatar
+- DuckDuckGo
+
+```javascript
+constructor() {
+  super("gravatar", Scope.EMAIL);
+}
+
+async getUrl(author) {
+  const email = author.getAuthor();
+  // Hash email and build URL
+  return gravatarUrl;
+}
+```
+
+## URL Construction
+
+### Query Parameters
+
+Use clear query parameter construction:
+
+```javascript
+const params = new URLSearchParams({
+  domain: author.getDomain(),
+  size: 128,
+});
+return `https://api.example.com/avatar?${params}`;
+```
+
+### Hash Generation
+
+For providers requiring email hashes (like Gravatar):
+
+```javascript
+// Use MD5 or SHA256 as required by provider
+const emailHash = await this.hashEmail(author.getAuthor());
+return `https://gravatar.com/avatar/${emailHash}`;
+```
+
+## Error Handling
+
+Providers should handle errors gracefully:
+
+```javascript
+async getUrl(author) {
+  try {
+    const url = await this.fetchAvatarUrl(author);
+    return url;
+  } catch (error) {
+    console.error(`Error fetching from ${this.name}:`, error);
+    return null;  // Return null on failure
+  }
+}
+```
+
+## Network Requests
+
+When making HTTP requests:
+
+- Use `fetch()` API
+- Set appropriate headers
+- Handle network failures
+- Respect rate limits
+
+```javascript
+async getUrl(author) {
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Thunderbird-Auto-Profile-Picture'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    return response.url;
+  } catch (error) {
+    console.error(`${this.name} request failed:`, error);
+    return null;
+  }
+}
+```
+
+## Special Provider Types
+
+### BIMI Provider
+
+BIMI requires DNS lookups and certificate validation:
+
+- Check for BIMI DNS records
+- Validate SVG signatures
+- Return verified brand logos only
+
+### Fallback Providers
+
+Some providers serve as fallbacks:
+
+- Should be reliable and fast
+- Should have high success rate
+- Example: DuckDuckGo, IconHorse
+
+## Provider Registration
+
+Add new providers to [ProviderFactory.js](mdc:src/providers/ProviderFactory.js):
+
+```javascript
+import YourProvider from "./YourProvider.js";
+
+static getProviders() {
+  return [
+    new GravatarProvider(),
+    new GoogleProvider(),
+    new YourProvider(),  // Add here
+    // ...
+  ];
+}
+```
+
+## Testing Providers
+
+Test providers with various inputs:
+
+- Valid emails
+- Emails without avatars
+- Invalid domains
+- Network failures
+- Rate limit scenarios
+
+```javascript
+// Example test cases
+const author1 = await Author.fromAuthor("user@example.com");
+const author2 = await Author.fromAuthor("invalid@nonexistent.xyz");
+const url1 = await provider.getUrl(author1);
+const url2 = await provider.getUrl(author2); // Should handle gracefully
+```
+
+## Performance Guidelines
+
+- Cache DNS lookups when applicable
+- Minimize network requests
+- Return quickly on failure (don't retry multiple times)
+- Use HTTP/2 when available
+- Respect provider rate limits
+
+## Privacy Considerations
+
+- Don't log email addresses in production
+- Use secure HTTPS connections only
+- Consider user privacy settings
+- Document what data is sent to provider
+
+```javascript
+// Good - log domain only
+console.log(`Fetching avatar for domain: ${author.getDomain()}`);
+
+// Bad - logs email address
+console.log(`Fetching avatar for: ${author.getAuthor()}`);
+```

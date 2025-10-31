@@ -1,0 +1,265 @@
+---
+globs: src/_locales/**/*.json
+---
+
+# Localization (i18n) Guidelines
+
+## Structure
+
+Localization files are located in `src/_locales/{locale}/messages.json`.
+
+## Supported Locales
+
+Current translations:
+
+- `en` - English (default)
+- `cs` - Czech
+- `de` - German
+- `es` - Spanish
+- `fr` - French
+- `it` - Italian
+- `ja` - Japanese
+- `nl` - Dutch
+- `pl` - Polish
+- `pt` - Portuguese
+- `ru` - Russian
+
+## Message Format
+
+Each message has a key and object with `message` and optional `description`:
+
+```json
+{
+  "extensionName": {
+    "message": "Auto Profile Picture",
+    "description": "Name of the extension"
+  },
+  "extensionDescription": {
+    "message": "Automatically fetch and display profile pictures for email senders.",
+    "description": "Description shown in add-ons manager"
+  }
+}
+```
+
+## Key Naming Conventions
+
+### Extension Metadata
+
+- `extensionName` - Extension name
+- `extensionDescription` - Extension description
+
+### Settings UI
+
+Use camelCase with descriptive prefixes:
+
+- `settingsTitle` - Title of settings page
+- `settingInboxList` - Inbox list setting
+- `settingContactsIntegration` - Contacts integration setting
+- `providerGravatar` - Gravatar provider name
+- `previewSection` - Preview section title
+
+### Feature Names
+
+- Use singular form for feature names
+- Be consistent across all locales
+- Keep technical terms in English if commonly understood
+
+## Adding New Messages
+
+### 1. Add to English (en) First
+
+```json
+{
+  "newFeatureName": {
+    "message": "New Feature",
+    "description": "Describe what this text is used for"
+  }
+}
+```
+
+### 2. Use in Code
+
+```javascript
+// In JavaScript
+const label = browser.i18n.getMessage("newFeatureName");
+
+// In HTML
+<span data-i18n="newFeatureName"></span>
+
+// Or with __MSG__ syntax in manifest
+"description": "__MSG_extensionDescription__"
+```
+
+### 3. Add to All Locales
+
+After adding to English, add translations to all other locale files. If translation is not available, use English as fallback.
+
+## Translation Guidelines
+
+### Keep Consistent
+
+- Use same terminology across all messages
+- Maintain tone and style
+- Technical terms should be consistent
+
+### Be Concise
+
+- Settings labels should be short
+- Descriptions can be longer
+- Avoid unnecessary words
+
+### Cultural Sensitivity
+
+- Avoid idioms that don't translate well
+- Use neutral language
+- Consider cultural context
+
+### Placeholders
+
+Use placeholders for dynamic content:
+
+```json
+{
+  "avatarFetchedFor": {
+    "message": "Avatar fetched for $EMAIL$",
+    "description": "Success message",
+    "placeholders": {
+      "email": {
+        "content": "$1",
+        "example": "user@example.com"
+      }
+    }
+  }
+}
+```
+
+Use in code:
+
+```javascript
+const message = browser.i18n.getMessage("avatarFetchedFor", "user@example.com");
+```
+
+## Common Message Keys
+
+### Actions
+
+- `save` - Save button
+- `cancel` - Cancel button
+- `reset` - Reset button
+- `apply` - Apply button
+- `enable` - Enable option
+- `disable` - Disable option
+
+### States
+
+- `enabled` - Enabled state
+- `disabled` - Disabled state
+- `loading` - Loading state
+- `error` - Error state
+- `success` - Success state
+
+### Settings Categories
+
+- `generalSettings` - General settings section
+- `providerSettings` - Provider settings section
+- `advancedSettings` - Advanced settings section
+
+## Testing Translations
+
+### 1. Switch Thunderbird Locale
+
+Change Thunderbird language to test translations.
+
+### 2. Check for Missing Translations
+
+All keys in English should exist in other locales.
+
+### 3. Verify Text Fit
+
+Ensure translated text fits in UI:
+
+- Buttons should accommodate longer text
+- Labels should not wrap excessively
+- Settings page should be readable
+
+### 4. Test RTL Languages
+
+If adding RTL languages (Arabic, Hebrew):
+
+- Test UI layout
+- Ensure proper text direction
+- Check icon alignment
+
+## Best Practices
+
+### DO:
+
+- ✅ Always include `description` field
+- ✅ Use descriptive key names
+- ✅ Keep messages in alphabetical order (within logical groups)
+- ✅ Test in at least 2-3 languages
+- ✅ Use proper punctuation
+
+### DON'T:
+
+- ❌ Hard-code user-visible strings in code
+- ❌ Use technical jargon unnecessarily
+- ❌ Assume word order is same in all languages
+- ❌ Use complex placeholders when simple text works
+- ❌ Mix languages in same message
+
+## Updating Existing Messages
+
+When changing English message:
+
+1. Update `en/messages.json`
+2. Review and update all other locales
+3. Add comment in commit about translation changes needed
+4. Consider creating issue for community translations
+
+## Special Characters
+
+Escape special characters properly:
+
+```json
+{
+  "message": "Use \"quotes\" for emphasis",
+  "description": "Example with quotes"
+}
+```
+
+## Provider Names
+
+Keep provider names consistent and recognizable:
+
+- "Gravatar" (not "GravAtar" or "gravatar")
+- "Google" (brand name)
+- "DuckDuckGo" (exact brand name)
+- "BIMI" (acronym, uppercase)
+
+## Format Specifiers
+
+When using format specifiers in messages:
+
+- Use clear placeholder names
+- Provide examples in description
+- Document expected format
+
+```json
+{
+  "cacheSize": {
+    "message": "Cache contains $COUNT$ items ($SIZE$ MB)",
+    "description": "Shows cache statistics",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "150"
+      },
+      "size": {
+        "content": "$2",
+        "example": "12.5"
+      }
+    }
+  }
+}
+```

@@ -1,0 +1,227 @@
+---
+globs: *.js
+---
+
+# JavaScript Coding Conventions
+
+## ES6 Modules
+
+- Always use ES6 import/export syntax
+- Include `.js` extension in all imports (required for Thunderbird)
+- Use default exports for classes
+- Use named exports for utilities and constants
+
+```javascript
+// Good
+import Author from "./Author.js";
+import { Scope } from "./Provider.js";
+
+// Bad - missing .js extension
+import Author from "./Author";
+```
+
+## Class Structure
+
+### Constructor Documentation
+
+Always document constructor parameters with JSDoc:
+
+```javascript
+/**
+ * Creates an instance of ClassName.
+ * @param {string} name - The name parameter
+ * @param {Object} options - Configuration options
+ */
+constructor(name, options = {}) {
+  this.name = name;
+}
+```
+
+### Method Documentation
+
+Document all public methods with:
+
+- Description of what the method does
+- `@param` for each parameter with type and description
+- `@returns` with type and description
+- `@throws` if the method can throw errors
+
+```javascript
+/**
+ * Gets the profile picture URL for the given author.
+ * @param {Author} author - The author to get the URL for.
+ * @returns {Promise<string>} The profile picture URL.
+ * @throws {Error} If the author is invalid.
+ */
+async getUrl(author) {
+  // implementation
+}
+```
+
+## Async/Await Pattern
+
+- Prefer `async/await` over Promise chains
+- Use `try/catch` for error handling in async functions
+- Always handle promise rejections
+
+```javascript
+// Good
+async function fetchAvatar(author) {
+  try {
+    const url = await provider.getUrl(author);
+    return url;
+  } catch (error) {
+    console.error("Error fetching avatar:", error);
+    return null;
+  }
+}
+```
+
+## Naming Conventions
+
+### Variables and Functions
+
+- Use camelCase for variables and functions
+- Use descriptive names that indicate purpose
+- Boolean variables should start with `is`, `has`, `should`, etc.
+
+```javascript
+let avatarUrl;
+let isContactsEnabled;
+async function fetchProfilePicture() {}
+```
+
+### Classes
+
+- Use PascalCase for class names
+- Service classes should end with "Service"
+- Strategy classes should end with "Strategy"
+- Provider classes should end with provider name (e.g., "Gravatar")
+
+```javascript
+class AvatarService {}
+class CacheStrategy {}
+class GravatarProvider {}
+```
+
+### Constants
+
+- Use UPPER_SNAKE_CASE for constants
+- Group related constants in objects or exported constants
+
+```javascript
+const MAX_REQUEST_SIZE = 50;
+
+const Status = {
+  WAITING: "[WAITING]",
+  READY: "[READY]",
+};
+```
+
+## Error Handling
+
+### Console Logging
+
+- Use `console.log()` for debugging (remove before production)
+- Use `console.warn()` for non-critical issues
+- Use `console.error()` for errors with context information
+
+```javascript
+console.error("Error fetching avatar for", author.getAuthor(), ":", error);
+```
+
+### Graceful Degradation
+
+Always provide fallbacks:
+
+```javascript
+try {
+  const version = Services.appinfo.version;
+  return parseInt(version.split(".")[0], 10);
+} catch (error) {
+  console.error("Error getting version:", error);
+  // Default to safe fallback
+  return 145;
+}
+```
+
+## Version-Aware Code
+
+When implementing features that depend on Thunderbird version:
+
+```javascript
+const tbVersion = getThunderbirdVersion();
+const useCanvas = tbVersion >= 145;
+
+if (useCanvas) {
+  // TB 145+ implementation
+} else {
+  // TB < 145 implementation
+}
+```
+
+## String Handling
+
+- Use template literals for string interpolation
+- Use `.toLowerCase()` for case-insensitive comparisons
+- Store lowercase versions when using as keys
+
+```javascript
+// Good
+const key = author.getAuthor().toLowerCase();
+console.log(`Processing avatar for ${author.getAuthor()}`);
+
+// Avoid
+const key = author.getAuthor(); // May cause cache misses
+console.log("Processing avatar for " + author.getAuthor());
+```
+
+## Array and Object Operations
+
+- Use modern array methods (map, filter, reduce, etc.)
+- Use object destructuring when appropriate
+- Use `for...of` for simple iterations, `for...in` for object keys
+
+```javascript
+// Array iteration
+for (const item of items) {
+  process(item);
+}
+
+// Object iteration
+for (const key in this.cache) {
+  if (this.cache[key] === Status.WAITING) {
+    waiting++;
+  }
+}
+```
+
+## Browser API Usage
+
+- Always handle browser API errors with try/catch
+- Use `await` for browser API calls that return promises
+- Check for API availability when using optional features
+
+```javascript
+try {
+  const data = await browser.storage.local.get(key);
+  return data[key];
+} catch (error) {
+  console.error("Storage error:", error);
+  return null;
+}
+```
+
+## Performance Considerations
+
+- Cache results when possible (use session cache or persistent storage)
+- Implement rate limiting for network requests
+- Use polling with reasonable delays (200ms) when waiting for async operations
+
+```javascript
+// Rate limiting check
+if (this.countWaitingAvatars() > MAX_REQUEST_SIZE) {
+  console.warn("Too many requests in progress");
+  return null;
+}
+```

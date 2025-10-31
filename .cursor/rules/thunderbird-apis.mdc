@@ -1,0 +1,280 @@
+---
+globs: src/api/*.js,src/background.js,manifest.json
+---
+
+# Thunderbird Extension APIs
+
+## Experiment APIs
+
+This extension uses a custom WebExtension Experiment API defined in [headerApi.js](mdc:src/api/headerApi.js) and [headerApi.json](mdc:src/api/headerApi.json).
+
+### Manifest Registration
+
+```json
+"experiment_apis": {
+  "headerApi": {
+    "schema": "api/headerApi.json",
+    "parent": {
+      "scopes": ["addon_parent"],
+      "paths": [["headerApi"]],
+      "script": "api/headerApi.js"
+    }
+  }
+}
+```
+
+### API Scope
+
+Experiment APIs run in privileged context with access to:
+
+- `Services` (Firefox/Thunderbird internal services)
+- `ChromeUtils` (low-level utilities)
+- Direct DOM manipulation of mail UI
+- XPCOM components
+
+## HeaderAPI Implementation
+
+### Main Functions
+
+#### `browser.headerApi.pictureHeaders(tabId, payloadJson)`
+
+Renders avatars in message headers and inbox list.
+
+#### `browser.headerApi.pictureHeadersConversation(tabId, payloadJson)`
+
+Renders avatars in Thunderbird Conversations view.
+
+### Version Detection in Experiment API
+
+```javascript
+function getThunderbirdVersion() {
+  try {
+    const appInfo = Services.appinfo;
+    const version = appInfo.version;
+    return parseInt(version.split(".")[0], 10);
+  } catch (error) {
+    console.error("Error getting Thunderbird version:", error);
+    return 145; // Safe default
+  }
+}
+```
+
+### Installation Functions
+
+#### `installOnRow(row, url, tbVersion)`
+
+Installs avatar on inbox list row:
+
+- TB 145+: Creates canvas element
+- TB < 145: Creates img element
+- Handles both avatar images and initials
+
+#### `installOnMessageHeader(header, url, tbVersion)`
+
+Installs avatar in message header:
+
+- Located via `.recipient-avatar` selector
+- Size: 34x34px
+- Uses namespace for img elements in older versions
+
+#### `installConversation(conversation, data, win, tbVersion)`
+
+Installs avatars in conversation view:
+
+- Popups: `.authorPicture` (48x48px)
+- Messages: `.contactInitials` or `.auto-profile-picture` (32x32px)
+
+### Canvas Rendering (TB 145+)
+
+```javascript
+async function drawDataUrlToCanvas(dataUrl, canvas, width, height, win) {
+  const parts = dataUrl.split(",");
+  const mimeMatch = parts[0].match(/:(.*?);/);
+  const mimeType = mimeMatch ? mimeMatch[1] : "image/png";
+
+  const binaryString = win.atob(parts[1]);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+
+  const blob = new Blob([bytes], { type: mimeType });
+  const imageBitmap = await win.createImageBitmap(blob);
+
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(imageBitmap, 0, 0, width, height);
+}
+```
+
+## Standard WebExtension APIs
+
+### Browser Storage API
+
+Used for persistent settings and cache:
+
+```javascript
+// Save to storage
+await browser.storage.local.set({ key: value });
+
+// Read from storage
+const result = await browser.storage.local.get(key);
+const value = result[key];
+
+// Remove from storage
+await browser.storage.local.remove(key);
+```
+
+### Messages API
+
+Read email messages:
+
+```javascript
+// Get full message
+const full = await browser.messages.getFull(messageId);
+
+// List messages
+const messages = await browser.messages.list(folder);
+
+// Get message details
+const message = await browser.messages.get(messageId);
+```
+
+### Accounts API
+
+Access Thunderbird accounts:
+
+```javascript
+// List all accounts
+const accounts = await browser.accounts.list();
+
+// Get specific account
+const account = await browser.accounts.get(accountId);
+```
+
+### Contacts/Address Books API
+
+Manage contacts:
+
+```javascript
+// List address books
+const addressBooks = await browser.addressBooks.list();
+
+// Get contacts
+const contacts = await browser.contacts.list(addressBookId);
+
+// Update contact with photo
+await browser.contacts.update(contactId, {
+  photoDataUrl: dataUrl,
+});
+```
+
+### Runtime API
+
+```javascript
+// Get browser info (for version detection)
+const info = await browser.runtime.getBrowserInfo();
+
+// Send messages between scripts
+browser.runtime.sendMessage({ type: "update", data: payload });
+
+// Listen for messages
+browser.runtime.onMessage.addListener((message) => {
+  // Handle message
+});
+```
+
+## Permissions Required
+
+From [manifest.json](mdc:src/manifest.json):
+
+```json
+"permissions": [
+  "messagesRead",   // Read email messages
+  "accountsRead",   // Read account information
+  "storage",        // Local storage access
+  "addressBooks",   // Contact management
+  "<all_urls>"      // Network requests to any domain
+]
+```
+
+## Background Script
+
+[background.js](mdc:src/background.js) is the main entry point:
+
+- Initializes all services
+- Handles message passing
+- Coordinates avatar fetching
+- Manages settings updates
+
+### Service Initialization Pattern
+
+```javascript
+// Create services
+const cache = new CacheStorage();
+const settingsManager = new SettingsManager(cache);
+const avatarService = new AvatarService();
+const mailService = new MailService(avatarService);
+
+// Load settings
+let inboxListEnabled = await settingsManager.getInboxListEnabled();
+```
+
+## Event Handling
+
+### Tab Events
+
+```javascript
+browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  if (changeInfo.status === "complete") {
+    // Tab loaded, install avatars
+  }
+});
+```
+
+### Display Events
+
+```javascript
+browser.headerApi.onDisplayed.addListener(async (result) => {
+  const tab = result.tab;
+  // Handle avatar display
+});
+```
+
+## CSP Compliance
+
+### Content Security Policy
+
+Extension pages must comply with CSP:
+
+- No inline scripts
+- No `eval()` or `new Function()`
+- No inline event handlers
+- TB 145+: No data URLs in img src (use canvas instead)
+
+### Manifest CSP (if needed)
+
+```json
+"content_security_policy": "default-src 'self'; img-src 'self' data:;"
+```
+
+## Debugging
+
+### Console Access
+
+- Background script console: Tools → Developer Tools → Browser Console
+- Experiment API: Check Browser Console (privileged context)
+- Options page: Right-click → Inspect Element
+
+### Logging Best Practices
+
+```javascript
+// Include context in logs
+console.log("Installing avatar for", email, "in tab", tabId);
+
+// Log errors with full context
+console.error("Failed to fetch avatar:", {
+  author: author.getAuthor(),
+  provider: provider.name,
+  error: error.message,
+});
+```

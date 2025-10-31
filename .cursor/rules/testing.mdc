@@ -1,0 +1,344 @@
+---
+globs: test/**/*.js
+---
+
+# Testing Guidelines
+
+## Test Framework
+
+This project uses:
+
+- **Mocha** - Test runner
+- **Chai** - Assertion library
+
+## Running Tests
+
+```bash
+npm install  # Install dependencies
+npm test     # Run all tests
+```
+
+## Test File Structure
+
+Test files are located in `test/src/` and named with `.test.js` suffix:
+
+- [author.test.js](mdc:test/src/author.test.js) - Tests for Author class
+- [mailservice.duck.test.js](mdc:test/src/mailservice.duck.test.js) - Tests for DuckDuckGo mail service
+- [mailservice.proton.test.js](mdc:test/src/mailservice.proton.test.js) - Tests for ProtonMail service
+- [recipientinitial.test.js](mdc:test/src/recipientinitial.test.js) - Tests for RecipientInitial class
+
+## Test Structure
+
+### Basic Test Template
+
+```javascript
+import { expect } from "chai";
+import ClassName from "../../src/src/ClassName.js";
+
+describe("ClassName", () => {
+  describe("methodName", () => {
+    it("should do something specific", () => {
+      // Arrange
+      const instance = new ClassName();
+      const input = "test";
+
+      // Act
+      const result = instance.methodName(input);
+
+      // Assert
+      expect(result).to.equal("expected");
+    });
+  });
+});
+```
+
+### Async Tests
+
+```javascript
+describe("AsyncClass", () => {
+  it("should fetch data asynchronously", async () => {
+    const instance = new AsyncClass();
+    const result = await instance.fetchData();
+    expect(result).to.not.be.null;
+  });
+});
+```
+
+## Assertion Styles
+
+### Equality
+
+```javascript
+expect(value).to.equal(expected); // Strict equality (===)
+expect(value).to.deep.equal(expected); // Deep equality for objects/arrays
+expect(value).to.eql(expected); // Alias for deep.equal
+```
+
+### Truthiness
+
+```javascript
+expect(value).to.be.true;
+expect(value).to.be.false;
+expect(value).to.be.null;
+expect(value).to.be.undefined;
+expect(value).to.exist;
+expect(value).to.not.exist;
+```
+
+### Type Checking
+
+```javascript
+expect(value).to.be.a("string");
+expect(value).to.be.an("array");
+expect(value).to.be.an.instanceof(ClassName);
+```
+
+### Strings
+
+```javascript
+expect(str).to.include("substring");
+expect(str).to.match(/regex/);
+expect(str).to.have.lengthOf(10);
+```
+
+### Arrays and Objects
+
+```javascript
+expect(array).to.have.lengthOf(3);
+expect(array).to.include(item);
+expect(array).to.have.members([1, 2, 3]);
+expect(obj).to.have.property("key");
+expect(obj).to.have.property("key", "value");
+expect(obj).to.have.keys(["key1", "key2"]);
+```
+
+## Test Organization
+
+### Group Related Tests
+
+```javascript
+describe("Author", () => {
+  describe("constructor", () => {
+    it("should create instance with email", () => {});
+    it("should handle invalid input", () => {});
+  });
+
+  describe("getAuthor", () => {
+    it("should return email address", () => {});
+    it("should return lowercase email", () => {});
+  });
+
+  describe("getDomain", () => {
+    it("should extract domain from email", () => {});
+    it("should handle special cases", () => {});
+  });
+});
+```
+
+### Test Edge Cases
+
+Always test:
+
+- Normal inputs
+- Empty values
+- Null/undefined
+- Special characters
+- Edge cases specific to domain
+
+```javascript
+describe("RecipientInitial", () => {
+  describe("getInitials", () => {
+    it("should get initials from normal name", () => {
+      expect(getInitials("John Doe")).to.equal("JD");
+    });
+
+    it("should handle single name", () => {
+      expect(getInitials("John")).to.equal("J");
+    });
+
+    it("should handle empty string", () => {
+      expect(getInitials("")).to.equal("");
+    });
+
+    it("should handle special characters", () => {
+      expect(getInitials("Jean-Paul François")).to.equal("JF");
+    });
+  });
+});
+```
+
+## Testing Providers
+
+### Provider Test Pattern
+
+```javascript
+describe("GravatarProvider", () => {
+  let provider;
+
+  beforeEach(() => {
+    provider = new GravatarProvider();
+  });
+
+  it("should have correct scope", () => {
+    expect(provider.scope).to.equal(Scope.EMAIL);
+  });
+
+  it("should generate valid URL for email", async () => {
+    const author = await Author.fromAuthor("user@example.com");
+    const url = await provider.getUrl(author);
+    expect(url).to.be.a("string");
+    expect(url).to.include("gravatar.com");
+  });
+
+  it("should handle missing avatar gracefully", async () => {
+    const author = await Author.fromAuthor("nonexistent@example.com");
+    const url = await provider.getUrl(author);
+    // Should return URL even if avatar doesn't exist (provider handles 404)
+    expect(url).to.not.be.null;
+  });
+});
+```
+
+## Testing Services
+
+### Mock Dependencies
+
+```javascript
+describe("AvatarService", () => {
+  let avatarService;
+  let mockProfileFetcher;
+
+  beforeEach(() => {
+    avatarService = new AvatarService();
+    mockProfileFetcher = {
+      getAvatar: async () => "http://example.com/avatar.jpg",
+    };
+  });
+
+  it("should cache avatar URLs", async () => {
+    const author = await Author.fromAuthor("user@example.com");
+    const url1 = await avatarService.getAvatar(author);
+    const url2 = await avatarService.getAvatar(author);
+    expect(url1).to.equal(url2); // Should return cached value
+  });
+});
+```
+
+## Testing Email Parsing
+
+Test various email formats:
+
+```javascript
+describe("Author.fromAuthor", () => {
+  it("should parse plain email", async () => {
+    const author = await Author.fromAuthor("user@example.com");
+    expect(author.getAuthor()).to.equal("user@example.com");
+  });
+
+  it("should parse email with display name", async () => {
+    const author = await Author.fromAuthor("John Doe <john@example.com>");
+    expect(author.getAuthor()).to.equal("john@example.com");
+  });
+
+  it("should handle ProtonMail addresses", async () => {
+    const author = await Author.fromAuthor("user@pm.me");
+    expect(author.getDomain()).to.equal("protonmail.com");
+  });
+
+  it("should handle DuckDuckGo addresses", async () => {
+    const author = await Author.fromAuthor("user@duck.com");
+    expect(author.getDomain()).to.equal("duckduckgo.com");
+  });
+});
+```
+
+## Performance Tests
+
+Test for performance issues:
+
+```javascript
+describe("CacheStorage", () => {
+  it("should retrieve from cache quickly", async () => {
+    const cache = new CacheStorage();
+    const start = Date.now();
+
+    await cache.set("key", "value");
+    const value = await cache.get("key");
+
+    const duration = Date.now() - start;
+    expect(duration).to.be.below(100); // Should complete in < 100ms
+  });
+});
+```
+
+## Test Coverage
+
+Aim for high coverage of:
+
+- ✅ Core business logic (Author, RecipientInitial)
+- ✅ Provider URL generation
+- ✅ Email parsing edge cases
+- ✅ Cache operations
+- ✅ Error handling
+
+Lower priority:
+
+- UI rendering code (test manually in Thunderbird)
+- Network requests (use mocks)
+- Browser API calls (stub if needed)
+
+## Before Committing
+
+Always run tests before committing:
+
+```bash
+npm test
+```
+
+All tests should pass:
+
+```
+  56 passing
+```
+
+## Adding New Tests
+
+When adding new features:
+
+1. Write tests first (TDD approach) or alongside implementation
+2. Test happy path and edge cases
+3. Ensure tests are independent (no shared state)
+4. Use descriptive test names
+5. Add to existing test files or create new ones following naming convention
+
+## Debugging Tests
+
+### Run Single Test File
+
+```bash
+npx mocha test/src/author.test.js
+```
+
+### Run Tests with Grep
+
+```bash
+npx mocha --grep "getInitials"
+```
+
+### Add Debug Output
+
+```javascript
+it("should do something", () => {
+  console.log("Debug:", variable); // Add temporary debug logs
+  expect(result).to.equal(expected);
+});
+```
+
+## CI/CD Considerations
+
+Tests should be:
+
+- Fast (complete in < 10 seconds total)
+- Deterministic (no random failures)
+- Independent (no reliance on external services)
+- Self-contained (no manual setup required)

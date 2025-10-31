@@ -1,0 +1,94 @@
+---
+alwaysApply: true
+---
+
+# Auto Profile Picture Extension - Project Architecture
+
+This is a Mozilla Thunderbird extension that automatically fetches and displays profile pictures for email senders.
+
+## Core Architecture
+
+### Entry Points
+
+- [background.js](mdc:src/background.js) - Main extension entry point, initializes all services
+- [manifest.json](mdc:src/manifest.json) - Extension manifest (version 2.4.0+, requires TB 112.0+)
+
+### Service Layer (`src/src/`)
+
+Core services follow a single-responsibility pattern:
+
+- [AvatarService.js](mdc:src/src/AvatarService.js) - Manages avatar URLs with session caching
+- [ProfilePictureFetcher.js](mdc:src/src/ProfilePictureFetcher.js) - Fetches avatars using provider strategies
+- [MailService.js](mdc:src/src/MailService.js) - Handles email-related operations
+- [ContactsService.js](mdc:src/src/ContactsService.js) - Manages Thunderbird contacts integration
+- [MessagesService.js](mdc:src/src/MessagesService.js) - Processes email messages
+- [CacheStorage.js](mdc:src/src/CacheStorage.js) - Persistent storage management using browser.storage
+- [ImageConverter.js](mdc:src/src/ImageConverter.js) - Converts images to data URLs
+- [Author.js](mdc:src/src/Author.js) - Represents email author with parsing utilities
+- [RecipientInitial.js](mdc:src/src/RecipientInitial.js) - Generates initials when no avatar available
+
+### Provider Pattern (`src/providers/`)
+
+Avatar providers implement the [Provider.js](mdc:src/providers/Provider.js) base class:
+
+- [ProviderFactory.js](mdc:src/providers/ProviderFactory.js) - Creates provider instances based on settings
+- Each provider (Gravatar, Google, BIMI, etc.) implements `async getUrl(author)`
+- Providers have a `scope` property: `Scope.DOMAIN` or `Scope.EMAIL`
+
+### Strategy Pattern (`src/src/strategies/`)
+
+Multiple strategies for avatar fetching:
+
+- [AvatarStrategy.js](mdc:src/src/strategies/AvatarStrategy.js) - Base strategy class
+- [CacheStrategy.js](mdc:src/src/strategies/CacheStrategy.js) - Check cache first
+- [ContactsStrategy.js](mdc:src/src/strategies/ContactsStrategy.js) - Check Thunderbird contacts
+- [OnlineStrategy.js](mdc:src/src/strategies/OnlineStrategy.js) - Fetch from providers
+- [VoidStrategy.js](mdc:src/src/strategies/VoidStrategy.js) - Fallback to initials
+
+### Experiment API (`src/api/`)
+
+- [headerApi.js](mdc:src/api/headerApi.js) - Custom WebExtension API for UI modifications
+- [headerApi.json](mdc:src/api/headerApi.json) - API schema definition
+- Handles rendering avatars in mail headers, inbox list, and conversation views
+
+### Settings Management (`src/settings/`)
+
+- [SettingsManager.js](mdc:src/settings/SettingsManager.js) - Manages extension settings
+- [defaultSettings.js](mdc:src/settings/defaultSettings.js) - Default configuration values
+- [options/](mdc:src/settings/options/) - Settings UI (HTML/JS/CSS)
+
+## Thunderbird Version Compatibility
+
+### CSP Compliance
+
+Thunderbird 145 introduced stricter Content Security Policy that broke data URL usage in img elements. TB 146 fixed this issue. The extension uses conditional rendering:
+
+- **TB 145 only**: Canvas with `createImageBitmap()` for CSP-safe image rendering (workaround)
+- **TB < 145 and TB 146+**: Traditional `<img>` elements with data URLs (standard approach)
+
+### Version Detection
+
+- Privileged context (headerApi.js): Uses `Services.appinfo.version`
+- Extension context (options.js): Uses `browser.runtime.getBrowserInfo()`
+- Default fallback: Assumes TB 145 (canvas approach for safety)
+
+## Key Design Patterns
+
+1. **Service Pattern**: Core functionality isolated in service classes
+2. **Provider Pattern**: Pluggable avatar providers
+3. **Strategy Pattern**: Composable avatar fetching strategies
+4. **Factory Pattern**: Provider instantiation
+5. **Caching**: Two-tier caching (session cache + persistent storage)
+
+## Module System
+
+- Uses ES6 modules (`type: "module"` in package.json)
+- All imports use `.js` extensions
+- No bundler - native ES modules in Thunderbird
+
+## Testing
+
+- Test framework: Mocha + Chai
+- Tests located in `test/src/`
+- Run with `npm test`
+- Tests cover Author parsing, MailService, and RecipientInitial logic
