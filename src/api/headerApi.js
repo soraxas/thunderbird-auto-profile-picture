@@ -722,7 +722,9 @@ async function getTotalMessagesView(window) {
   let { document } = window;
   try {
     return await window.gFolder.getTotalMessages(false);
-  } catch (e) { }
+  } catch (e) { 
+    // Fallback handled below: if getTotalMessages fails, try to get count from DOM.
+  }
   try {
     let counter = document.getElementById("threadPaneFolderCount");
     let data = JSON.parse(counter.dataset.l10nArgs);
