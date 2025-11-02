@@ -63,6 +63,10 @@
     "message": "Pamięć podręczna wyczyszczona",
     "description": "Komunikat wyświetlany po wyczyszczeniu pamięci podręcznej."
   },
+  "errorDisplayingImage": {
+    "message": "Błąd wyświetlania obrazu (szczegóły w konsoli)",
+    "description": "Komunikat o błędzie wyświetlany, gdy wystąpił błąd podczas wyświetlania obrazu."
+  },
   "testHeader": {
     "message": "Sprawdź zdjęcie profilowe",
     "description": "Nagłówek sekcji testowej."

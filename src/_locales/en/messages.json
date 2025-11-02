@@ -67,6 +67,10 @@
     "message": "Profile picture not found",
     "description": "Message displayed when the profile picture is not found."
   },
+  "errorDisplayingImage": {
+    "message": "Error displaying image (see console for details)",
+    "description": "Error message displayed when there's an error displaying the image."
+  },
   "testHeader": {
     "message": "Check a profile picture",
     "description": "Header for the test section."

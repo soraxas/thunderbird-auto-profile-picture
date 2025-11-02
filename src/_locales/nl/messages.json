@@ -67,6 +67,10 @@
     "message": "Profielfoto niet gevonden",
     "description": "Bericht dat wordt weergegeven wanneer de profielfoto niet wordt gevonden."
   },
+  "errorDisplayingImage": {
+    "message": "Fout bij weergeven van afbeelding (zie console voor details)",
+    "description": "Foutmelding die wordt weergegeven wanneer er een fout is bij het weergeven van de afbeelding."
+  },
   "testHeader": {
     "message": "Controleer een profielfoto",
     "description": "Kop voor de testsectie."

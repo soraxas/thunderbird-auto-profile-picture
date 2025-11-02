@@ -67,6 +67,10 @@
         "message": "Photo de profil non trouvée",
         "description": "Message affiché lorsque la photo de profil n'est pas trouvée."
     },
+    "errorDisplayingImage": {
+        "message": "Erreur lors de l'affichage de l'image (voir la console pour plus de détails)",
+        "description": "Message d'erreur affiché lorsqu'il y a une erreur lors de l'affichage de l'image."
+    },
     "testHeader": {
         "message": "Vérifier une photo de profil",
         "description": "En-tête de la section de test."

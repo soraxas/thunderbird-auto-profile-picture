@@ -124,7 +124,7 @@ async function fetchProfilePicture() {
         }
       } catch (error) {
         console.error("Error drawing image:", error);
-        profilePictureDiv.textContent = "Error displaying image";
+        profilePictureDiv.textContent = browser.i18n.getMessage("errorDisplayingImage");
       }
     } else {
       // TB < 145 and TB 146+: Use img element directly

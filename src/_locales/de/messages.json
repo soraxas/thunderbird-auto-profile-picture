@@ -63,6 +63,10 @@
     "message": "Cache geleert",
     "description": "Nachricht, die angezeigt wird, wenn der Cache geleert ist."
   },
+  "errorDisplayingImage": {
+    "message": "Fehler beim Anzeigen des Bildes (siehe Konsole für Details)",
+    "description": "Fehlermeldung, die angezeigt wird, wenn beim Anzeigen des Bildes ein Fehler auftritt."
+  },
   "testHeader": {
     "message": "Ein Profilbild überprüfen",
     "description": "Überschrift für den Testbereich."

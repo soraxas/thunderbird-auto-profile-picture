@@ -67,6 +67,10 @@
     "message": "Profilový obrázek nenalezen",
     "description": "Zpráva zobrazená, když není nalezen profilový obrázek."
   },
+  "errorDisplayingImage": {
+    "message": "Chyba při zobrazování obrázku (viz konzole pro podrobnosti)",
+    "description": "Chybová zpráva zobrazená při chybě zobrazení obrázku."
+  },
   "testHeader": {
     "message": "Zkontrolovat profilový obrázek",
     "description": "Nadpis pro sekci testování."

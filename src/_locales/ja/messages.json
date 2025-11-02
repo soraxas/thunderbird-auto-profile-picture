@@ -67,6 +67,10 @@
     "message": "プロフィール画像が見つかりません",
     "description": "プロフィール画像が見つからないときに表示されるメッセージ。"
   },
+  "errorDisplayingImage": {
+    "message": "画像の表示エラー（詳細はコンソールを参照）",
+    "description": "画像の表示中にエラーが発生したときに表示されるエラーメッセージ。"
+  },
   "testHeader": {
     "message": "プロフィール画像を確認",
     "description": "テストセクションのヘッダー。"
