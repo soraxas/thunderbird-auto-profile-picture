@@ -64,7 +64,6 @@ function setContactsIntegration() {
 async function getThunderbirdVersion() {
   try {
     const info = await browser.runtime.getBrowserInfo();
-    console.log("Thunderbird version:", info.version);
     const majorVersion = parseInt(info.version.split('.')[0], 10);
     return majorVersion;
   } catch (error) {

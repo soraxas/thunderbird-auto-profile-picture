@@ -5,6 +5,14 @@
 - Add automatic retry delay after 30 days when no profile picture is found
 - Options to disable and enable sources
 
+## 2.4.1 - 2025-11-02
+
+### Fixed
+
+- Display issue with delayed IMAP deletion [#14](https://github.com/noam-sc/thunderbird-auto-profile-picture/issues/14)
+- Compatibility with Thunderbird 145 and 146+ [#15](https://github.com/noam-sc/thunderbird-auto-profile-picture/issues/15)
+- Remove unsafe innerHTML usage in the inbox list
+
 ## 2.4.0 - 2025-08-13
 
 ### Changed
