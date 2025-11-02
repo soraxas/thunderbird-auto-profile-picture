@@ -32,7 +32,7 @@ async function printCacheSize(domElement) {
 
 async function clearCache() {
   await cache.clearCache();
-  printCacheSize(cacheSizeElement);
+  await printCacheSize(cacheSizeElement);
   clearCacheButton.disabled = true;
   clearCacheButton.textContent = browser.i18n.getMessage("cacheCleared");
 }
@@ -118,10 +118,9 @@ async function fetchProfilePicture() {
           const BlobConstructor = window.Blob || Blob;
           const blob = new BlobConstructor([bytes], { type: mimeType });
           const createImageBitmapFn = window.createImageBitmap || createImageBitmap;
-          createImageBitmapFn(blob).then(imageBitmap => {
-            const ctx = canvas.getContext("2d");
-            ctx.drawImage(imageBitmap, 0, 0, 100, 100);
-          });
+          const imageBitmap = await createImageBitmapFn(blob);
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(imageBitmap, 0, 0, 100, 100);
         }
       } catch (error) {
         console.error("Error drawing image:", error);
@@ -155,10 +154,17 @@ function setupLocalization() {
   }
 }
 
-printCacheSize(cacheSizeElement);
-initOptions();
-clearCacheButton.addEventListener("click", clearCache);
-inboxListCheckbox.addEventListener("change", setInboxList);
-contactsIntegrationCheckbox.addEventListener("change", setContactsIntegration);
-fetchButton.addEventListener("click", fetchProfilePicture);
-setupLocalization();
+/**
+ * Initialize the options page
+ */
+async function initialize() {
+  await printCacheSize(cacheSizeElement);
+  initOptions();
+  clearCacheButton.addEventListener("click", clearCache);
+  inboxListCheckbox.addEventListener("change", setInboxList);
+  contactsIntegrationCheckbox.addEventListener("change", setContactsIntegration);
+  fetchButton.addEventListener("click", fetchProfilePicture);
+  setupLocalization();
+}
+
+initialize();
