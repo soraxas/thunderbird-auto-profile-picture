@@ -789,11 +789,12 @@ async function installInboxList(window, urls, rows, offset, temporary) {
   rows = new Map([...rows].sort((a, b) => a[0] - b[0]));
   const minRowKey = Math.min(...rows.keys());
   rows = new Map([...rows].filter(([key, value]) => {
-    if (value.getAttribute("data-properties") === "dummy" && value.getAttribute("aria-expanded") === "true") {
+    const dataProperties = value.getAttribute("data-properties");
+    if (dataProperties === "dummy" && value.getAttribute("aria-expanded") === "true") {
       removedRows.push([key, value]);
       return false;
     }
-    if (value.getAttribute("data-properties") && value.getAttribute("data-properties").includes("imapdeleted")) { // filter out deleted rows
+    if (dataProperties && dataProperties.includes("imapdeleted")) { // filter out deleted rows
       removedRows.push([key, value]);
       return false;
     }
