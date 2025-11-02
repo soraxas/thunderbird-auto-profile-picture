@@ -117,7 +117,6 @@ function getThunderbirdVersion() {
   try {
     const appInfo = Services.appinfo;
     const version = appInfo.version;
-    console.log("Thunderbird version:", version);
     const majorVersion = parseInt(version.split('.')[0], 10);
     return majorVersion;
   } catch (error) {
@@ -784,41 +783,37 @@ async function installInboxList(window, urls, rows, offset, temporary) {
   let nbInstalled = 0;
 
   let threadTree = document.getElementById("threadTree");
-  const isGroupedBySort = threadTree.getAttribute("data-show-grouped-by-sort") === "true";
 
-  if (isGroupedBySort) {
+  // filter out rows that have data-properties="dummy" and aria-expanded="true" for grouped by sort view
+  let removedRows = [];
+  rows = new Map([...rows].sort((a, b) => a[0] - b[0]));
+  const minRowKey = Math.min(...rows.keys());
+  rows = new Map([...rows].filter(([key, value]) => {
+    if (value.getAttribute("data-properties") === "dummy" && value.getAttribute("aria-expanded") === "true") {
+      removedRows.push([key, value]);
+      return false;
+    }
+    if (value.getAttribute("data-properties") && value.getAttribute("data-properties").includes("imapdeleted")) { // filter out deleted rows
+      removedRows.push([key, value]);
+      return false;
+    }
+    return true;
+  }));
 
-    // filter out rows that have data-properties="dummy" and aria-expanded="true"
-    let removedRows = [];
-    rows = new Map([...rows].sort((a, b) => a[0] - b[0]));
-    const minRowKey = Math.min(...rows.keys());
-    rows = new Map([...rows].filter(([key, value]) => {
-      if (value.getAttribute("data-properties") === "dummy" && value.getAttribute("aria-expanded") === "true") {
-        removedRows.push([key, value]);
-        return false;
-      }
-      if (value.getAttribute("data-properties") && value.getAttribute("data-properties").includes("imapdeleted")) {
-        removedRows.push([key, value]);
-        return false;
-      }
-      return true;
-    }));
+  const removedRowsKeys = removedRows.map(([key, value]) => key);
 
-    const removedRowsKeys = removedRows.map(([key, value]) => key);
+  // reindex map keys and includes removed rows
+  const hiddenDummyRows = getExpandedDummyRowsNumber(threadTree, minRowKey);
 
-    // reindex map keys and includes removed rows
-    const hiddenDummyRows = getExpandedDummyRowsNumber(threadTree, minRowKey);
+  const indexShift = minRowKey - hiddenDummyRows;
 
-    const indexShift = minRowKey - hiddenDummyRows;
-
-    rows = new Map([...rows].map(([key, value], index) => {
-      if (removedRowsKeys.includes(key - 1)) {
-        let [, removedRow] = removedRows.find(([index, value]) => index === key - 1);
-        return [index + indexShift, [removedRow, value]];
-      }
-      return [index + indexShift, value];
-    }));
-  }
+  rows = new Map([...rows].map(([key, value], index) => {
+    if (removedRowsKeys.includes(key - 1)) {
+      let [, removedRow] = removedRows.find(([index, value]) => index === key - 1);
+      return [index + indexShift, [removedRow, value]];
+    }
+    return [index + indexShift, value];
+  }));
 
   for (let i = 0; i < urls.length; i++) {
     const currentRow = i + offset;
