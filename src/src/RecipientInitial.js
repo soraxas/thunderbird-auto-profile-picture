@@ -34,9 +34,11 @@ export default class RecipientInitial {
    * @returns {Object} - The initials object.
    */
   static buildInitials(author) {
+    const identifier = author.getEmail() || author.getAuthor() || "";
     return {
       value: "//INITIAL:" + author.getInitials(),
-      color: RecipientInitial.getColor(author.getEmail() || author.getAuthor()),
+      color: RecipientInitial.getColor(identifier),
+      identifier,
     };
   }
 }

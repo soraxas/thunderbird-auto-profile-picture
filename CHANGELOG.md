@@ -5,6 +5,13 @@
 - Add automatic retry delay after 30 days when no profile picture is found
 - Options to disable and enable sources
 
+## 2.4.2 - 2025-11-17
+
+### Fixed
+
+- Fix SVG display issue in the inbox list on Thunderbird 145
+- Optimize flickering issues in the inbox list
+
 ## 2.4.1 - 2025-11-02
 
 ### Fixed
