@@ -50,17 +50,36 @@ class MessagesService {
    * @returns {Promise<Array>} - The list of avatar URLs.
    */
   async fetchAvatarsFromMessages(messages) {
-    let messagesAuthorsSet = await this.getMessagesAuthorsSet(messages);
-    let urls = {};
+    const messagesAuthorsSet = await this.getMessagesAuthorsSet(messages);
+    const urls = {};
 
-    let avatarPromises = Array.from(messagesAuthorsSet).map(async (author) => {
-      let url = await this.avatarService.getAvatar(author);
-      urls[author] = url || RecipientInitial.buildInitials(author);
+    const avatarPromises = Array.from(messagesAuthorsSet).map(async (author) => {
+      const identifier = author.getEmail() || author.getAuthor() || "";
+      const url = await this.avatarService.getAvatar(author);
+
+      if (url && typeof url === "object") {
+        urls[author] = {
+          value: url.value ?? "",
+          color: url.color ?? null,
+          identifier: url.identifier || identifier,
+        };
+        return;
+      }
+
+      if (url) {
+        urls[author] = {
+          value: url,
+          identifier,
+        };
+        return;
+      }
+
+      urls[author] = RecipientInitial.buildInitials(author);
     });
 
     await Promise.all(avatarPromises);
 
-    return await this.mapMessagesToCorrespondents(messages).then((correspondents) => {
+    return this.mapMessagesToCorrespondents(messages).then((correspondents) => {
       return correspondents.map((correspondent) => urls[correspondent]);
     });
   }
