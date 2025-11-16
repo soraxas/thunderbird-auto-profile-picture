@@ -382,22 +382,6 @@ function shouldSkipAvatarUpdate(
   return false;
 }
 
-function getRowMailIdentifier(row) {
-  if (!row) {
-    return null;
-  }
-  const dataset = row.dataset || {};
-  return (
-    dataset.messageId ||
-    dataset.id ||
-    dataset.key ||
-    row.getAttribute("data-message-id") ||
-    row.getAttribute("data-key") ||
-    row.id ||
-    null
-  );
-}
-
 function drawStaticImageToCanvas(canvas, iconUrl, size) {
   const img = canvas.ownerDocument.createElement("img");
   const handleLoad = () => {
