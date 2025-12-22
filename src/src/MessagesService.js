@@ -283,11 +283,9 @@ class MessagesService {
    * @returns {Promise<void>}
    */
   async processSubbatch(subbatch, tabId, subbatchOffset) {
-    this.displayInitials(subbatch, tabId, subbatchOffset);
-    let promiseFetchAvatars = new Promise((resolve) => {
+    return new Promise((resolve) => {
       this.displayAvatars(subbatch, tabId, subbatchOffset, resolve);
     });
-    return promiseFetchAvatars;
   }
 
   /**
