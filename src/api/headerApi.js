@@ -1303,11 +1303,18 @@ function setupEventListeners(threadTree, eventsToListen, window) {
           continue;
         }
         if (mutation.type === "childList" && mutation.removedNodes.length > 0) {
+          let isAvatarRemoval = false;
+          for (let node of mutation.removedNodes) {
+            if (node.classList && (node.classList.contains("recipient-avatar") || node.classList.contains("contactInitials"))) {
+              isAvatarRemoval = true;
+              break;
+            }
+          }
+          if (isAvatarRemoval) continue;
+
           cleanup();
           window.setTimeout(() => {
-            if (!areAvatarsInstalled(threadTree)) {
-              resolve("childList");
-            }
+            resolve("childList");
           }, 300); // WAIT_TIME_MS - 200
         }
       }

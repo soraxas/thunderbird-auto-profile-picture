@@ -319,8 +319,8 @@ class MessagesService {
   async displayInboxList(tab, triggeredFromDOMEvent = false) {
     if (!this.canDisplayInboxList()) {
       if (triggeredFromDOMEvent) {
-        const tabId = await this.getMailTabId(tab);
-        this.installDOMlistener(tabId);
+        const remainingTime = this.WAIT_TIME_MS - (Date.now() - this.lastDisplayInboxListCall);
+        setTimeout(() => this.displayInboxList(tab, triggeredFromDOMEvent), Math.max(0, remainingTime));
       }
       return;
     }
