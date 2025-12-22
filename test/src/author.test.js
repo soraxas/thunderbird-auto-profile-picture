@@ -25,6 +25,20 @@ describe('Author', () => {
             const mail = new Author(SAMPLE_AUTHOR, SAMPLE_EMAIL);
             expect(mail.hasName).to.be.true;
         });
+
+        it('should handle null author parameter', () => {
+            const mail = new Author(null, SAMPLE_EMAIL);
+            expect(mail.author).to.equal('');
+            expect(mail.mail).to.equal(SAMPLE_EMAIL);
+            expect(mail.hasName).to.be.false;
+        });
+
+        it('should handle undefined author parameter', () => {
+            const mail = new Author(undefined, SAMPLE_EMAIL);
+            expect(mail.author).to.equal('');
+            expect(mail.mail).to.equal(SAMPLE_EMAIL);
+            expect(mail.hasName).to.be.false;
+        });
     }); describe('parse() static method', () => {
         beforeEach(() => {
             globalThis.browser = {
@@ -49,6 +63,14 @@ describe('Author', () => {
 
             // Handle empty string
             email = await Author.parse('');
+            expect(email).to.equal('');
+
+            // Handle null
+            email = await Author.parse(null);
+            expect(email).to.equal('');
+
+            // Handle undefined
+            email = await Author.parse(undefined);
             expect(email).to.equal('');
         });
 
@@ -193,12 +215,13 @@ describe('Author', () => {
         });
 
         it('should handle null gracefully in constructor', () => {
-            // Note: Constructor expects strings, testing what happens with null
+            // Constructor converts null to empty string with || ""
             const mail = new Author('test', null);
             expect(() => mail.getEmail()).to.not.throw();
             expect(() => mail.hasAName()).to.not.throw();
-            // getDomain() will throw because null.split() fails
-            expect(() => mail.getDomain()).to.throw();
+            expect(() => mail.getDomain()).to.not.throw();
+            expect(mail.getEmail()).to.equal('');
+            expect(mail.getDomain()).to.equal('');
         });
     });
 });

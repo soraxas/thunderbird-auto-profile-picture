@@ -10,9 +10,9 @@ export default class Author {
    * @param {string} mail - The email address of the author.
    */
   constructor(author, mail) {
-    this.author = author;
-    this.mail = mail;
-    this.hasName = author.includes("<");
+    this.author = author || "";
+    this.mail = mail || "";
+    this.hasName = author ? author.includes("<") : false;
     this.publicMails = defaultSettings.publicMails;
   }
 
@@ -22,6 +22,9 @@ export default class Author {
    * @returns {string} - The parsed email address.
    */
   static async parse(author) {
+    if (!author) {
+      return "";
+    }
     try { // only for Thunderbird 128+
       const parsed = await browser.messengerUtilities.parseMailboxString(author);
       if (parsed) {
