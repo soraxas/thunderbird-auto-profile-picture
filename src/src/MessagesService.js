@@ -18,6 +18,7 @@ class MessagesService {
     this.isPending = false;
     this.pendingTab = null;
     this.pendingTriggeredFromDOMEvent = false;
+    this.processId = 0;
   }
 
   /**
@@ -162,10 +163,10 @@ class MessagesService {
    * @param {number} tabId - The tab ID.
    * @param {number} offset - The offset.
    */
-  async processNextMessages(currentMessages, tabId, offset) {
+  async processNextMessages(currentMessages, tabId, offset, processId) {
     let page = await this.getNextMessages(currentMessages);
     const newOffset = offset + currentMessages.messages.length;
-    this.processMessagesInboxList(page, tabId, newOffset, await browser.headerApi.getFirstDisplayedMessageId(tabId));
+    this.processMessagesInboxList(page, tabId, newOffset, await browser.headerApi.getFirstDisplayedMessageId(tabId), processId);
   }
 
   /**
@@ -174,14 +175,21 @@ class MessagesService {
    * @param {number} tabId - The tab ID.
    * @param {number} messagesOffset - The offset for the messages.
    * @param {number} firstDisplayedMessageId - The ID of the first displayed message.
+   * @param {number} processId - The process ID.
    */
-  async processMessagesInboxList(currentMessages, tabId, messagesOffset, firstDisplayedMessageId) {
+  async processMessagesInboxList(currentMessages, tabId, messagesOffset, firstDisplayedMessageId, processId) {
+    if (processId !== this.processId) {
+      return;
+    }
     const hasNextMessages = (currentMessages) =>
       currentMessages.id !== null && currentMessages.id !== undefined;
 
     const fetchAllMessages = async (currentMessages, maxMessages, messagesOffset) => {
       let allMessages = [];
       while (hasNextMessages(currentMessages) && allMessages.length + messagesOffset < maxMessages) {
+        if (processId !== this.processId) {
+          return { messages: [], id: null };
+        }
         allMessages = allMessages.concat(currentMessages.messages);
         currentMessages = await this.getNextMessages(currentMessages);
       }
@@ -197,6 +205,9 @@ class MessagesService {
       firstDisplayedMessageId > currentMessages.messages.length + messagesOffset
     ) {
       let messages = await fetchAllMessages(currentMessages, firstDisplayedMessageId, messagesOffset);
+      if (processId !== this.processId) {
+        return;
+      }
       currentMessages = messages;
       let priorityMessagesList = currentMessages.messages.slice(firstDisplayedMessageId);
       let priorityMessages = {
@@ -209,10 +220,13 @@ class MessagesService {
         this.processNextMessages(
           currentMessages,
           tabId,
-          messagesOffset + currentMessages.messages.length
+          messagesOffset + currentMessages.messages.length,
+          processId
         );
       }
 
+      // We don't process previous messages to avoid performance issues when scrolling down
+      /*
       let index = firstDisplayedMessageId - this.SUBBATCH_SIZE;
       while (index >= 0) {
         let previousMessagesList = currentMessages.messages.slice(index, index + this.SUBBATCH_SIZE);
@@ -223,13 +237,24 @@ class MessagesService {
         await this.processBatch(previousMessages, tabId, messagesOffset + index);
         index -= this.SUBBATCH_SIZE;
       }
+      */
+
+      if (firstDisplayedMessageId >= this.SUBBATCH_SIZE) {
+        await this.installDOMlistener(tabId);
+      }
       return;
     }
 
     await this.processBatch(currentMessages, tabId, messagesOffset);
 
     if (hasNextMessages(currentMessages)) {
-      this.processNextMessages(currentMessages, tabId, messagesOffset);
+      // Stop processing if we have covered the visible area plus a buffer
+      const VISIBLE_BUFFER = 50;
+      if (firstDisplayedMessageId !== undefined && messagesOffset + currentMessages.messages.length > firstDisplayedMessageId + VISIBLE_BUFFER) {
+        await this.installDOMlistener(tabId);
+        return;
+      }
+      this.processNextMessages(currentMessages, tabId, messagesOffset, processId);
     }
   }
 
@@ -335,9 +360,11 @@ class MessagesService {
       return;
     }
     this.updateLastDisplayInboxListCall();
+    this.processId++;
+    const currentProcessId = this.processId;
     const { currentMessages, tabId, firstDisplayedMessageId } =
       await this.getMessagesAndTabId(tab);
-    await this.processMessagesInboxList(currentMessages, tabId, 0, firstDisplayedMessageId);
+    await this.processMessagesInboxList(currentMessages, tabId, 0, firstDisplayedMessageId, currentProcessId);
   }
 }
 
