@@ -15,6 +15,9 @@ class MessagesService {
      * Timestamp of the last display inbox list call.
      */
     this.lastDisplayInboxListCall = 0;
+    this.isPending = false;
+    this.pendingTab = null;
+    this.pendingTriggeredFromDOMEvent = false;
   }
 
   /**
@@ -318,10 +321,17 @@ class MessagesService {
    */
   async displayInboxList(tab, triggeredFromDOMEvent = false) {
     if (!this.canDisplayInboxList()) {
-      if (triggeredFromDOMEvent) {
-        const remainingTime = this.WAIT_TIME_MS - (Date.now() - this.lastDisplayInboxListCall);
-        setTimeout(() => this.displayInboxList(tab, triggeredFromDOMEvent), Math.max(0, remainingTime));
+      this.pendingTab = tab;
+      this.pendingTriggeredFromDOMEvent = triggeredFromDOMEvent;
+      if (this.isPending) {
+        return;
       }
+      this.isPending = true;
+      const remainingTime = this.WAIT_TIME_MS - (Date.now() - this.lastDisplayInboxListCall);
+      setTimeout(() => {
+        this.isPending = false;
+        this.displayInboxList(this.pendingTab, this.pendingTriggeredFromDOMEvent);
+      }, Math.max(0, remainingTime));
       return;
     }
     this.updateLastDisplayInboxListCall();
