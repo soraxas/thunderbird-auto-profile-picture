@@ -1287,23 +1287,17 @@ function setupEventListeners(threadTree, eventsToListen, window) {
           // mutations caused by the extension
           continue;
         }
-        if (mutation.type === "childList" && mutation.removedNodes.length > 0) {
-          let isAvatarRemoval = false;
-          for (let node of mutation.removedNodes) {
+        if (mutation.type === "childList" && (mutation.removedNodes.length > 0 || mutation.addedNodes.length > 0)) {
+          let isAvatarChange = false;
+          let nodesToCheck = mutation.removedNodes.length > 0 ? mutation.removedNodes : mutation.addedNodes;
+          for (let node of nodesToCheck) {
             if (node.classList && (node.classList.contains("recipient-avatar") || node.classList.contains("contactInitials"))) {
-              isAvatarRemoval = true;
+              isAvatarChange = true;
               break;
             }
           }
-          if (isAvatarRemoval) continue;
+          if (isAvatarChange) continue;
 
-          cleanup();
-          window.setTimeout(() => {
-            resolve("childList");
-          }, 300); // WAIT_TIME_MS - 200
-          break;
-        }
-        if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
           cleanup();
           window.setTimeout(() => {
             resolve("childList");
