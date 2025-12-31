@@ -1257,23 +1257,6 @@ async function initializeAllEventListeners(threadTree, payloadLength, window) {
 }
 
 /**
- * Checks if all avatars are installed on the thread tree.
- * 
- * @param {Object} table - The table or threadTree element.
- * @returns {boolean} - Returns true if all avatars are installed, otherwise false.
- */
-function areAvatarsInstalled(table) {
-  let rows = table.querySelectorAll('tr[is="thread-row"], tr[is="thread-card"]');
-  for (let row of rows) {
-    let recipientAvatar = row.querySelector(".recipient-avatar");
-    if (!recipientAvatar) {
-      return false;
-    }
-  }
-  return true;
-}
-
-/**
  * Sets up event listeners on the thread tree.
  *
  * @param {Object} threadTree - The thread tree object.
@@ -1318,6 +1301,14 @@ function setupEventListeners(threadTree, eventsToListen, window) {
           window.setTimeout(() => {
             resolve("childList");
           }, 300); // WAIT_TIME_MS - 200
+          break;
+        }
+        if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
+          cleanup();
+          window.setTimeout(() => {
+            resolve("childList");
+          }, 300); // WAIT_TIME_MS - 200
+          break;
         }
       }
     });
