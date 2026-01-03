@@ -1220,6 +1220,7 @@ async function handleInboxList(window, payload, threadTree, offset) {
     }, INBOX_LIST_TIMEOUT);
     await installInboxList(window, payload, threadTree._rows, offset, false);
 
+    // Only setup event listeners for the first rows to avoid multiple concurrent listeners
     if (offset < 15) {
       const eventType = await initializeAllEventListeners(threadTree, payload.length, window);
       await new Promise((resolve) => window.setTimeout(resolve, 100));
@@ -1247,28 +1248,12 @@ async function initializeAllEventListeners(threadTree, payloadLength, window) {
     eventsToListen.delete("scroll");
   }
   let tableThreadTree = threadTree.getElementsByTagName("table")[0];
+
   const eventType = await Promise.race([
     setupEventListeners(tableThreadTree, EVENTS_TABLE_TO_LISTEN, window),
-    setupEventListeners(threadTree, eventsToListen, window),
+    setupEventListeners(threadTree, eventsToListen, window)
   ]);
   return eventType;
-}
-
-/**
- * Checks if all avatars are installed on the thread tree.
- * 
- * @param {Object} table - The table or threadTree element.
- * @returns {boolean} - Returns true if all avatars are installed, otherwise false.
- */
-function areAvatarsInstalled(table) {
-  let rows = table.querySelectorAll('tr[is="thread-row"], tr[is="thread-card"]');
-  for (let row of rows) {
-    let recipientAvatar = row.querySelector(".recipient-avatar");
-    if (!recipientAvatar) {
-      return false;
-    }
-  }
-  return true;
 }
 
 /**
@@ -1302,13 +1287,22 @@ function setupEventListeners(threadTree, eventsToListen, window) {
           // mutations caused by the extension
           continue;
         }
-        if (mutation.type === "childList" && mutation.removedNodes.length > 0) {
+        if (mutation.type === "childList" && (mutation.removedNodes.length > 0 || mutation.addedNodes.length > 0)) {
+          let isAvatarChange = false;
+          let nodesToCheck = mutation.removedNodes.length > 0 ? mutation.removedNodes : mutation.addedNodes;
+          for (let node of nodesToCheck) {
+            if (node.classList && (node.classList.contains("recipient-avatar") || node.classList.contains("contactInitials"))) {
+              isAvatarChange = true;
+              break;
+            }
+          }
+          if (isAvatarChange) continue;
+
           cleanup();
           window.setTimeout(() => {
-            if (!areAvatarsInstalled(threadTree)) {
-              resolve("childList");
-            }
+            resolve("childList");
           }, 300); // WAIT_TIME_MS - 200
+          break;
         }
       }
     });
