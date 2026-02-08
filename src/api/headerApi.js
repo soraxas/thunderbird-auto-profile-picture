@@ -1017,7 +1017,7 @@ async function getRowFirstId(rows) {
     const minimumRowKey = Math.min(...rowKeys);
     const row = rows.get(minimumRowKey);
     return parseInt(row.id.replace("threadTree-row", ""), 10);
-  } catch (_error) {}
+  } catch (_error) { }
 
   try {
     const row = rows[0][1];
@@ -1363,7 +1363,8 @@ function setupEventListeners(threadTree, eventsToListen, window) {
   });
 }
 
-var _headerApi = class extends ExtensionCommon.ExtensionAPI {
+// biome-ignore lint/correctness/noUnusedVariables: Variable name required by the extension API
+var headerApi = class extends ExtensionCommon.ExtensionAPI {
   getAPI(context) {
     return {
       headerApi: {
