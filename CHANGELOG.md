@@ -5,6 +5,16 @@
 - Add automatic retry delay after 30 days when no profile picture is found
 - Options to disable and enable sources
 
+## 2.5.0 - 2026-02-08
+
+### Changed
+
+- Add support for Addy email relay [#24](https://github.com/noam-sc/thunderbird-auto-profile-picture/issues/24) [#25](https://github.com/noam-sc/thunderbird-auto-profile-picture/pull/25)
+
+### Fixed
+
+- Improve avatar rendering and stability [#22](https://github.com/noam-sc/thunderbird-auto-profile-picture/pull/22)
+
 ## 2.4.2 - 2025-11-17
 
 ### Fixed
