@@ -1,6 +1,6 @@
 import Author from "./Author.js";
-import ProfilePictureFetcher from "./ProfilePictureFetcher.js";
 import ImageConverter from "./ImageConverter.js";
+import ProfilePictureFetcher from "./ProfilePictureFetcher.js";
 
 /**
  * Service for handling contacts and their profile pictures.
@@ -17,13 +17,20 @@ class ContactsService {
    * @returns {Promise<void>}
    */
   async handleContactCreated(contactNode) {
-    if (contactNode.readOnly || await messenger.contacts.getPhoto(contactNode.id)) return;
+    if (
+      contactNode.readOnly ||
+      (await messenger.contacts.getPhoto(contactNode.id))
+    )
+      return;
 
     const mail = this.mailService.getPrimaryEmail(contactNode);
     if (!mail) return;
 
     const authorObject = await Author.fromAuthor(mail);
-    const file = await new ProfilePictureFetcher(window, authorObject).getAvatar("file");
+    const file = await new ProfilePictureFetcher(
+      window,
+      authorObject,
+    ).getAvatar("file");
     if (!file) return;
 
     const pngFile = await new ImageConverter(file).convertToPng();

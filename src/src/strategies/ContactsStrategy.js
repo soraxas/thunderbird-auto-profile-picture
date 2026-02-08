@@ -8,7 +8,9 @@ export class ContactsStrategy extends AvatarStrategy {
 
   async fetchAvatar() {
     try {
-      const contacts = await messenger.contacts.quickSearch(this.mail.getEmail());
+      const contacts = await messenger.contacts.quickSearch(
+        this.mail.getEmail(),
+      );
       if (contacts.length > 0) {
         const contact = contacts[0];
         const photo = await messenger.contacts.getPhoto(contact.id);

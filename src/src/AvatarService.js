@@ -1,6 +1,6 @@
+import defaultSettings from "../settings/defaultSettings.js";
 import Author from "./Author.js";
 import ProfilePictureFetcher from "./ProfilePictureFetcher.js";
-import defaultSettings from "../settings/defaultSettings.js";
 
 const Status = {
   WAITING: "[WAITING]",
@@ -34,7 +34,7 @@ export default class AvatarService {
 
   /**
    * Retrieves the avatar URL for the given author.
-   * 
+   *
    * Steps:
    * 1. Check if the avatar URL is already in the session cache
    * 2. If not in cache:
@@ -43,20 +43,24 @@ export default class AvatarService {
    *    c. Fetch and store the avatar URL in the cache
    * 3. If the avatar is marked as waiting, poll until it's ready
    * 4. Return the cached avatar URL
-   * 
+   *
    * @param {Author} author - The author for whom to fetch the avatar URL.
    * @returns {Promise<string|null>} - The avatar URL or null if request limit exceeded or not found.
    */
   async getAvatar(author) {
-    let lcAuthor = author.getAuthor().toLowerCase();
+    const lcAuthor = author.getAuthor().toLowerCase();
     if (!this.sessionCacheAvatarUrls[lcAuthor]) {
       if (this.countWaitingAvatars() > defaultSettings.MAX_REQUEST_SIZE) {
-        console.warn("Too many requests in progress, skipping avatar fetch for " + author.getAuthor());
+        console.warn(
+          "Too many requests in progress, skipping avatar fetch for " +
+            author.getAuthor(),
+        );
         return null;
       }
       this.sessionCacheAvatarUrls[lcAuthor] = Status.WAITING;
       const profilePictureFetcher = new ProfilePictureFetcher(window, author);
-      this.sessionCacheAvatarUrls[lcAuthor] = await profilePictureFetcher.getAvatar();
+      this.sessionCacheAvatarUrls[lcAuthor] =
+        await profilePictureFetcher.getAvatar();
     }
     while (this.sessionCacheAvatarUrls[lcAuthor] === Status.WAITING) {
       await new Promise((resolve) => setTimeout(resolve, 200));

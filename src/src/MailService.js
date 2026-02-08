@@ -32,10 +32,18 @@ class MailService {
    * @returns {Promise<Author>} - The correspondent's email address.
    */
   async getCorrespondent(message, context = "inboxList") {
-    if (message.folder?.type === "sent" && message.recipients.length > 0 && context === "inboxList") {
+    if (
+      message.folder?.type === "sent" &&
+      message.recipients.length > 0 &&
+      context === "inboxList"
+    ) {
       return await Author.fromAuthor(message.recipients[0]);
     }
-    if (message.author.includes("drive-shares-noreply@google.com") || message.author.includes("drive-shares-dm-noreply@google.com")) { // proxy emails
+    if (
+      message.author.includes("drive-shares-noreply@google.com") ||
+      message.author.includes("drive-shares-dm-noreply@google.com")
+    ) {
+      // proxy emails
       const fullMessage = await browser.messages.getFull(message.id);
       if (fullMessage.headers["reply-to"]) {
         return await Author.fromAuthor(fullMessage.headers["reply-to"][0]);
@@ -46,10 +54,12 @@ class MailService {
     const mail = await Author.fromAuthor(message.author);
 
     // Handle duck.com aliases
-    if (mail && mail.getEmail().match(/@duck\.com$/)) {
+    if (mail?.getEmail().match(/@duck\.com$/)) {
       const fullMessage = await browser.messages.getFull(message.id);
       if (fullMessage.headers["duck-original-from"]) {
-        return await Author.fromAuthor(fullMessage.headers["duck-original-from"][0]);
+        return await Author.fromAuthor(
+          fullMessage.headers["duck-original-from"][0],
+        );
       }
 
       // Fallback to parsing the email address if header is not present
@@ -60,24 +70,63 @@ class MailService {
     }
 
     // Handle Proton email aliases (passmail.com, passmail.net, passinbox.com, passfwd.com)
-    if (mail && mail.getEmail().match(/@(passmail\.com|passmail\.net|passinbox\.com|passfwd\.com)$/)) {
+    if (
+      mail
+        ?.getEmail()
+        .match(/@(passmail\.com|passmail\.net|passinbox\.com|passfwd\.com)$/)
+    ) {
       const fullMessage = await browser.messages.getFull(message.id);
       if (fullMessage.headers["x-simplelogin-original-from"]) {
-        return await Author.fromAuthor(fullMessage.headers["x-simplelogin-original-from"][0]);
+        return await Author.fromAuthor(
+          fullMessage.headers["x-simplelogin-original-from"][0],
+        );
       }
 
       // Fallback to parsing the email address if header is not present
       const email = mail.getEmail();
-      const match = email.match(/^(.+)_[a-z0-9]+@(passmail\.com|passmail\.net|passinbox\.com|passfwd\.com)$/);
+      const match = email.match(
+        /^(.+)_[a-z0-9]+@(passmail\.com|passmail\.net|passinbox\.com|passfwd\.com)$/,
+      );
       if (match) {
         const emailPart = match[1];
-        const lastAtIndex = emailPart.lastIndexOf('_at_');
+        const lastAtIndex = emailPart.lastIndexOf("_at_");
         if (lastAtIndex !== -1) {
           const userPart = emailPart.substring(0, lastAtIndex);
           const domainPart = emailPart.substring(lastAtIndex + 4); // Skip '_at_'
           // Convert underscores back to dots in the domain part
-          const domain = domainPart.replace(/_/g, '.');
+          const domain = domainPart.replace(/_/g, ".");
           return await Author.fromAuthor(`${userPart}@${domain}`);
+        }
+      }
+    }
+
+    // Handle addy.io aliases (anonaddy.me, addy.io, anonaddy.com)
+    if (
+      mail
+        ?.getEmail()
+        .match(/@([^.@]+\.)*(anonaddy\.me|addy\.io|anonaddy\.com)$/)
+    ) {
+      const fullMessage = await browser.messages.getFull(message.id);
+      const originalHeader =
+        fullMessage.headers["x-anonaddy-original-sender"] ||
+        fullMessage.headers["x-addy-original-sender"];
+      if (originalHeader) {
+        return await Author.fromAuthor(originalHeader[0]);
+      }
+
+      // Fallback to parsing the email address if header is not present
+      const email = mail.getEmail();
+      const localPart = email.split("@")[0];
+      const plusIndex = localPart.indexOf("+");
+      if (plusIndex !== -1) {
+        const encoded = localPart.substring(plusIndex + 1);
+        const equalsIndex = encoded.lastIndexOf("=");
+        if (equalsIndex !== -1) {
+          const userPart = encoded.substring(0, equalsIndex);
+          const domainPart = encoded.substring(equalsIndex + 1);
+          if (userPart && domainPart) {
+            return await Author.fromAuthor(`${userPart}@${domainPart}`);
+          }
         }
       }
     }

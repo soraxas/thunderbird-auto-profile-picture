@@ -1,4 +1,4 @@
-import Provider from './Provider.js';
+import Provider from "./Provider.js";
 
 export default class GoogleProvider extends Provider {
   constructor() {

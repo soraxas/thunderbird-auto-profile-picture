@@ -1,5 +1,5 @@
-import Author from "./Author.js";
 import defaultSettings from "../settings/defaultSettings.js";
+import Author from "./Author.js";
 import RecipientInitial from "./RecipientInitial.js";
 
 /**
@@ -42,9 +42,11 @@ class MessagesService {
    * @returns {Promise<Array<Author>>} - The list of correspondents (Author objects).
    */
   async mapMessagesToCorrespondents(messages) {
-    const correspondents = await Promise.all(messages.map(async (message) => {
-      return await this.mailService.getCorrespondent(message);
-    }));
+    const correspondents = await Promise.all(
+      messages.map(async (message) => {
+        return await this.mailService.getCorrespondent(message);
+      }),
+    );
     return correspondents;
   }
 
@@ -57,29 +59,31 @@ class MessagesService {
     const messagesAuthorsSet = await this.getMessagesAuthorsSet(messages);
     const urls = {};
 
-    const avatarPromises = Array.from(messagesAuthorsSet).map(async (author) => {
-      const identifier = author.getEmail() || author.getAuthor() || "";
-      const url = await this.avatarService.getAvatar(author);
+    const avatarPromises = Array.from(messagesAuthorsSet).map(
+      async (author) => {
+        const identifier = author.getEmail() || author.getAuthor() || "";
+        const url = await this.avatarService.getAvatar(author);
 
-      if (url && typeof url === "object") {
-        urls[author] = {
-          value: url.value ?? "",
-          color: url.color ?? null,
-          identifier: url.identifier || identifier,
-        };
-        return;
-      }
+        if (url && typeof url === "object") {
+          urls[author] = {
+            value: url.value ?? "",
+            color: url.color ?? null,
+            identifier: url.identifier || identifier,
+          };
+          return;
+        }
 
-      if (url) {
-        urls[author] = {
-          value: url,
-          identifier,
-        };
-        return;
-      }
+        if (url) {
+          urls[author] = {
+            value: url,
+            identifier,
+          };
+          return;
+        }
 
-      urls[author] = RecipientInitial.buildInitials(author);
-    });
+        urls[author] = RecipientInitial.buildInitials(author);
+      },
+    );
 
     await Promise.all(avatarPromises);
 
@@ -94,16 +98,20 @@ class MessagesService {
    * @returns {Promise<Array<string>>} - The list of initials.
    */
   async getInitialsFromMessages(messages) {
-    let messagesAuthorsSet = await this.getMessagesAuthorsSet(messages);
-    let initials = {};
+    const messagesAuthorsSet = await this.getMessagesAuthorsSet(messages);
+    const initials = {};
 
-    await Promise.all(Array.from(messagesAuthorsSet).map(async (author) => {
-      initials[author] = RecipientInitial.buildInitials(author);
-    }));
+    await Promise.all(
+      Array.from(messagesAuthorsSet).map(async (author) => {
+        initials[author] = RecipientInitial.buildInitials(author);
+      }),
+    );
 
-    return await this.mapMessagesToCorrespondents(messages).then((correspondents) => {
-      return correspondents.map((correspondent) => initials[correspondent]);
-    });
+    return await this.mapMessagesToCorrespondents(messages).then(
+      (correspondents) => {
+        return correspondents.map((correspondent) => initials[correspondent]);
+      },
+    );
   }
 
   /**
@@ -113,7 +121,11 @@ class MessagesService {
    */
   async getMessagesAuthorsSet(messages) {
     return new Set(
-      await this.mapMessagesToCorrespondents(messages).then((correspondents) => { return correspondents; })
+      await this.mapMessagesToCorrespondents(messages).then(
+        (correspondents) => {
+          return correspondents;
+        },
+      ),
     );
   }
 
@@ -125,7 +137,12 @@ class MessagesService {
    */
   async displayInitials(messages, tabId, offset) {
     const initials = await this.getInitialsFromMessages(messages);
-    browser.headerApi.pictureInboxList(tabId, JSON.stringify(initials), offset, true);
+    browser.headerApi.pictureInboxList(
+      tabId,
+      JSON.stringify(initials),
+      offset,
+      true,
+    );
   }
 
   /**
@@ -139,7 +156,12 @@ class MessagesService {
     const urls = await this.fetchAvatarsFromMessages(messages);
     resolve();
 
-    const result = await browser.headerApi.pictureInboxList(tabId, JSON.stringify(urls), offset, false);
+    const result = await browser.headerApi.pictureInboxList(
+      tabId,
+      JSON.stringify(urls),
+      offset,
+      false,
+    );
     if (result.status === "needReprint") {
       if (result.eventType === "scroll") {
         this.lastDisplayInboxListCall -= this.WAIT_TIME_MS / 2;
@@ -164,9 +186,15 @@ class MessagesService {
    * @param {number} offset - The offset.
    */
   async processNextMessages(currentMessages, tabId, offset, processId) {
-    let page = await this.getNextMessages(currentMessages);
+    const page = await this.getNextMessages(currentMessages);
     const newOffset = offset + currentMessages.messages.length;
-    this.processMessagesInboxList(page, tabId, newOffset, await browser.headerApi.getFirstDisplayedMessageId(tabId), processId);
+    this.processMessagesInboxList(
+      page,
+      tabId,
+      newOffset,
+      await browser.headerApi.getFirstDisplayedMessageId(tabId),
+      processId,
+    );
   }
 
   /**
@@ -177,16 +205,29 @@ class MessagesService {
    * @param {number} firstDisplayedMessageId - The ID of the first displayed message.
    * @param {number} processId - The process ID.
    */
-  async processMessagesInboxList(currentMessages, tabId, messagesOffset, firstDisplayedMessageId, processId) {
+  async processMessagesInboxList(
+    currentMessages,
+    tabId,
+    messagesOffset,
+    firstDisplayedMessageId,
+    processId,
+  ) {
     if (processId !== this.processId) {
       return;
     }
     const hasNextMessages = (currentMessages) =>
       currentMessages.id !== null && currentMessages.id !== undefined;
 
-    const fetchAllMessages = async (currentMessages, maxMessages, messagesOffset) => {
+    const fetchAllMessages = async (
+      currentMessages,
+      maxMessages,
+      messagesOffset,
+    ) => {
       let allMessages = [];
-      while (hasNextMessages(currentMessages) && allMessages.length + messagesOffset < maxMessages) {
+      while (
+        hasNextMessages(currentMessages) &&
+        allMessages.length + messagesOffset < maxMessages
+      ) {
         if (processId !== this.processId) {
           return { messages: [], id: null };
         }
@@ -204,24 +245,34 @@ class MessagesService {
       firstDisplayedMessageId &&
       firstDisplayedMessageId > currentMessages.messages.length + messagesOffset
     ) {
-      let messages = await fetchAllMessages(currentMessages, firstDisplayedMessageId, messagesOffset);
+      const messages = await fetchAllMessages(
+        currentMessages,
+        firstDisplayedMessageId,
+        messagesOffset,
+      );
       if (processId !== this.processId) {
         return;
       }
       currentMessages = messages;
-      let priorityMessagesList = currentMessages.messages.slice(firstDisplayedMessageId);
-      let priorityMessages = {
+      const priorityMessagesList = currentMessages.messages.slice(
+        firstDisplayedMessageId,
+      );
+      const priorityMessages = {
         messages: priorityMessagesList,
         id: currentMessages.id,
       };
-      await this.processBatch(priorityMessages, tabId, messagesOffset + firstDisplayedMessageId);
+      await this.processBatch(
+        priorityMessages,
+        tabId,
+        messagesOffset + firstDisplayedMessageId,
+      );
 
       if (hasNextMessages(currentMessages)) {
         this.processNextMessages(
           currentMessages,
           tabId,
           messagesOffset + currentMessages.messages.length,
-          processId
+          processId,
         );
       }
 
@@ -250,11 +301,20 @@ class MessagesService {
     if (hasNextMessages(currentMessages)) {
       // Stop processing if we have covered the visible area plus a buffer
       const VISIBLE_BUFFER = 50;
-      if (firstDisplayedMessageId !== undefined && messagesOffset + currentMessages.messages.length > firstDisplayedMessageId + VISIBLE_BUFFER) {
+      if (
+        firstDisplayedMessageId !== undefined &&
+        messagesOffset + currentMessages.messages.length >
+          firstDisplayedMessageId + VISIBLE_BUFFER
+      ) {
         await this.installDOMlistener(tabId);
         return;
       }
-      this.processNextMessages(currentMessages, tabId, messagesOffset, processId);
+      this.processNextMessages(
+        currentMessages,
+        tabId,
+        messagesOffset,
+        processId,
+      );
     }
   }
 
@@ -267,9 +327,18 @@ class MessagesService {
    */
   async processBatch(currentMessages, tabId, messagesOffset) {
     const subbatches = [];
-    for (let i = 0; i < currentMessages.messages.length; i += this.SUBBATCH_SIZE) {
-      const subbatch = currentMessages.messages.slice(i, i + this.SUBBATCH_SIZE);
-      subbatches.push(this.processSubbatch(subbatch, tabId, messagesOffset + i));
+    for (
+      let i = 0;
+      i < currentMessages.messages.length;
+      i += this.SUBBATCH_SIZE
+    ) {
+      const subbatch = currentMessages.messages.slice(
+        i,
+        i + this.SUBBATCH_SIZE,
+      );
+      subbatches.push(
+        this.processSubbatch(subbatch, tabId, messagesOffset + i),
+      );
     }
     await Promise.all(subbatches);
     return true;
@@ -294,7 +363,7 @@ class MessagesService {
    * @returns {Promise<{currentMessages: Object, tabId: number, firstDisplayedMessageId: number}>} - The messages and tab ID.
    */
   async getMessagesAndTabId(tab) {
-    let tabId = await this.getMailTabId(tab);
+    const tabId = await this.getMailTabId(tab);
 
     const currentMessages = await browser.mailTabs.getListedMessages(tabId);
     const firstDisplayedMessageId =
@@ -317,7 +386,7 @@ class MessagesService {
         tabId = mailTabs[0].id;
       }
     } else if (tab.type !== "mail") {
-      throw new Error("Not a mail tab " + tab.type);
+      throw new Error(`Not a mail tab ${tab.type}`);
     } else {
       tabId = tab.id;
     }
@@ -350,11 +419,18 @@ class MessagesService {
         return;
       }
       this.isPending = true;
-      const remainingTime = this.WAIT_TIME_MS - (Date.now() - this.lastDisplayInboxListCall);
-      setTimeout(() => {
-        this.isPending = false;
-        this.displayInboxList(this.pendingTab, this.pendingTriggeredFromDOMEvent);
-      }, Math.max(0, remainingTime));
+      const remainingTime =
+        this.WAIT_TIME_MS - (Date.now() - this.lastDisplayInboxListCall);
+      setTimeout(
+        () => {
+          this.isPending = false;
+          this.displayInboxList(
+            this.pendingTab,
+            this.pendingTriggeredFromDOMEvent,
+          );
+        },
+        Math.max(0, remainingTime),
+      );
       return;
     }
     this.updateLastDisplayInboxListCall();
@@ -362,7 +438,13 @@ class MessagesService {
     const currentProcessId = this.processId;
     const { currentMessages, tabId, firstDisplayedMessageId } =
       await this.getMessagesAndTabId(tab);
-    await this.processMessagesInboxList(currentMessages, tabId, 0, firstDisplayedMessageId, currentProcessId);
+    await this.processMessagesInboxList(
+      currentMessages,
+      tabId,
+      0,
+      firstDisplayedMessageId,
+      currentProcessId,
+    );
   }
 }
 

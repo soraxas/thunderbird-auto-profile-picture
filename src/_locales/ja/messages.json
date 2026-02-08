@@ -88,17 +88,17 @@
     "description": "キャッシュにアイコンが保存されていないときに表示される数。"
   },
   "oneIcon": {
-      "message": "1 アイコン",
-      "description": "キャッシュに1つのアイコンが保存されているときに表示される数。"
+    "message": "1 アイコン",
+    "description": "キャッシュに1つのアイコンが保存されているときに表示される数。"
   },
   "multipleIcons": {
-      "message": "$NB$ アイコン",
-      "description": "キャッシュに複数のアイコンが保存されているときに表示される数。",
-      "placeholders": {
-          "NB": {
-              "content": "$1",
-              "example": "3"
-          }
+    "message": "$NB$ アイコン",
+    "description": "キャッシュに複数のアイコンが保存されているときに表示される数。",
+    "placeholders": {
+      "NB": {
+        "content": "$1",
+        "example": "3"
       }
+    }
   }
 }

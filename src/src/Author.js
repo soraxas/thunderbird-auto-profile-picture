@@ -25,12 +25,14 @@ export default class Author {
     if (!author) {
       return "";
     }
-    try { // only for Thunderbird 128+
-      const parsed = await browser.messengerUtilities.parseMailboxString(author);
+    try {
+      // only for Thunderbird 128+
+      const parsed =
+        await browser.messengerUtilities.parseMailboxString(author);
       if (parsed) {
         return parsed[0].email;
       }
-    } catch (error) { }
+    } catch (_error) {}
     const email = author.match(/<(.+)>/);
     if (email) {
       return email[1].toLowerCase().trim();
@@ -99,7 +101,10 @@ export default class Author {
    * @returns {Author} - A new Author instance with the subdomain removed.
    */
   removeSubDomain() {
-    return new Author(this.author, this.mail.split("@")[0] + "@" + this.getTopDomain());
+    return new Author(
+      this.author,
+      `${this.mail.split("@")[0]}@${this.getTopDomain()}`,
+    );
   }
 
   /**
@@ -119,7 +124,10 @@ export default class Author {
    * @returns {boolean} - True if the email address is public, false otherwise.
    */
   isPublic() {
-    return this.publicMails.includes(this.getDomainWithoutTld()) || this.publicMails.includes(this.getTopDomain());
+    return (
+      this.publicMails.includes(this.getDomainWithoutTld()) ||
+      this.publicMails.includes(this.getTopDomain())
+    );
   }
 
   /**

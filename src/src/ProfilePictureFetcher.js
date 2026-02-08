@@ -1,26 +1,34 @@
-import CacheStorage from "./CacheStorage.js";
 import ProviderFactory from "../providers/ProviderFactory.js";
-import { CacheStrategy } from "./strategies/CacheStrategy.js";
-import { OnlineStrategy } from "./strategies/OnlineStrategy.js";
-import { ContactsStrategy } from "./strategies/ContactsStrategy.js";
-import { VoidStrategy } from "./strategies/VoidStrategy.js";
-import { AvatarStrategy } from "./strategies/AvatarStrategy.js";
 import Author from "./Author.js";
+import CacheStorage from "./CacheStorage.js";
+import { AvatarStrategy } from "./strategies/AvatarStrategy.js";
+import { CacheStrategy } from "./strategies/CacheStrategy.js";
+import { ContactsStrategy } from "./strategies/ContactsStrategy.js";
+import { OnlineStrategy } from "./strategies/OnlineStrategy.js";
+import { VoidStrategy } from "./strategies/VoidStrategy.js";
 
 export default class ProfilePictureFetcher {
   /**
-   * 
+   *
    * @param {Window} wdow Window object
    * @param {Author} authorObject Author object to fetch the avatar for
    * @param {string} providerName Provider name to use for fetching the avatar
    * @param {boolean} disableCache Disable cache
    */
-  constructor(wdow, authorObject, providerName = "duckduckgo", disableCache = false) {
+  constructor(
+    wdow,
+    authorObject,
+    providerName = "duckduckgo",
+    disableCache = false,
+  ) {
     this.wdow = wdow;
     this.author = authorObject;
     this.provider = ProviderFactory.createProvider(providerName, wdow);
     this.gravatarProvider = ProviderFactory.createProvider("gravatar", wdow);
-    this.libravatarProvider = ProviderFactory.createProvider("libravatar", wdow);
+    this.libravatarProvider = ProviderFactory.createProvider(
+      "libravatar",
+      wdow,
+    );
     this.bimiProvider = ProviderFactory.createProvider("bimi", wdow);
     this.webProvider = ProviderFactory.createProvider("favicon_webpage", wdow);
     this.providerName = providerName;
@@ -49,7 +57,7 @@ export default class ProfilePictureFetcher {
    * @returns {File} File object
    */
   blobToFile(blob) {
-    let file = new File([blob], "avatar", { type: blob.type });
+    const file = new File([blob], "avatar", { type: blob.type });
     return file;
   }
 
@@ -60,7 +68,7 @@ export default class ProfilePictureFetcher {
    * @param {string} source Source of the icon
    */
   async saveBlobToCache(blob, iconDomain, source) {
-    const iconPath = "ICON_" + iconDomain + ".ico";
+    const iconPath = `ICON_${iconDomain}.ico`;
 
     await this.cache.saveIcon(iconPath, blob);
 
@@ -71,11 +79,11 @@ export default class ProfilePictureFetcher {
       source: source,
     };
 
-    this.cache.setProperty("ICON_" + iconDomain, fileInfos);
-    if (source == "gravatar" || this.author.isPublic()) {
-      this.cache.setProperty("ICON_" + this.author.getEmail(), fileInfos);
+    this.cache.setProperty(`ICON_${iconDomain}`, fileInfos);
+    if (source === "gravatar" || this.author.isPublic()) {
+      this.cache.setProperty(`ICON_${this.author.getEmail()}`, fileInfos);
     } else {
-      this.cache.setProperty("ICON_" + this.domain, fileInfos);
+      this.cache.setProperty(`ICON_${this.domain}`, fileInfos);
     }
   }
 
@@ -89,14 +97,11 @@ export default class ProfilePictureFetcher {
       ts: Date.now(),
     };
 
-    this.cache.setProperty("ICON_" + iconDomain, notFoundObject);
+    this.cache.setProperty(`ICON_${iconDomain}`, notFoundObject);
     if (this.author.isPublic()) {
-      this.cache.setProperty(
-        "ICON_" + this.author.getEmail(),
-        notFoundObject
-      );
+      this.cache.setProperty(`ICON_${this.author.getEmail()}`, notFoundObject);
     } else {
-      this.cache.setProperty("ICON_" + this.domain, notFoundObject);
+      this.cache.setProperty(`ICON_${this.domain}`, notFoundObject);
     }
   }
 
@@ -109,7 +114,7 @@ export default class ProfilePictureFetcher {
    */
   async downloadImage(url, iconDomain, source = this.providerName) {
     return await this.wdow.fetch(url).then(async (response) => {
-      if ((response.status == 404 && source == "gravatar") || !response.ok) {
+      if ((response.status === 404 && source === "gravatar") || !response.ok) {
         return null;
       }
       let blob = await response.blob();
@@ -141,13 +146,10 @@ export default class ProfilePictureFetcher {
     if (this.disableCache) {
       return false;
     }
-    if (
-      this.author.isPublic() &&
-      domain !== this.author.getEmail()
-    ) {
+    if (this.author.isPublic() && domain !== this.author.getEmail()) {
       originalDomain = this.author.getEmail();
     }
-    const key = "ICON_" + domain;
+    const key = `ICON_${domain}`;
 
     const fileInfos = await this.cache.getProperty(key);
     if (!fileInfos) {
@@ -155,15 +157,16 @@ export default class ProfilePictureFetcher {
     }
 
     try {
-      if (fileInfos.type == "notFound") {
+      if (fileInfos.type === "notFound") {
         return "notFound";
       }
-      let blob = await this.cache.getIcon(fileInfos.path, fileInfos.type);
+      const blob = await this.cache.getIcon(fileInfos.path, fileInfos.type);
       if (originalDomain) {
-        this.cache.setProperty("ICON_" + originalDomain, fileInfos);
+        this.cache.setProperty(`ICON_${originalDomain}`, fileInfos);
       }
       return blob;
-    } catch (error) { // corrupted entry
+    } catch (_error) {
+      // corrupted entry
       this.cache.removeProperty(key);
       return false;
     }
@@ -193,14 +196,30 @@ export default class ProfilePictureFetcher {
       new CacheStrategy(this, this.author.getEmail()),
       new CacheStrategy(this, this.domain),
       new OnlineStrategy(this, this.bimiProvider, this.author), // company first
-      this.author.hasSubDomain() ? new CacheStrategy(this, topDomain) : new VoidStrategy(),
-      this.author.hasSubDomain() ? new OnlineStrategy(this, this.bimiProvider, this.author.removeSubDomain()) : new VoidStrategy(),
+      this.author.hasSubDomain()
+        ? new CacheStrategy(this, topDomain)
+        : new VoidStrategy(),
+      this.author.hasSubDomain()
+        ? new OnlineStrategy(
+            this,
+            this.bimiProvider,
+            this.author.removeSubDomain(),
+          )
+        : new VoidStrategy(),
       new OnlineStrategy(this, this.gravatarProvider, this.author),
       new OnlineStrategy(this, this.libravatarProvider, this.author),
       new OnlineStrategy(this, this.provider, this.author),
       new OnlineStrategy(this, this.webProvider, this.author),
-      this.author.hasSubDomain() ? new OnlineStrategy(this, this.provider, this.author.removeSubDomain()) : new VoidStrategy(),
-      this.author.hasSubDomain() ? new OnlineStrategy(this, this.webProvider, this.author.removeSubDomain()) : new VoidStrategy()
+      this.author.hasSubDomain()
+        ? new OnlineStrategy(this, this.provider, this.author.removeSubDomain())
+        : new VoidStrategy(),
+      this.author.hasSubDomain()
+        ? new OnlineStrategy(
+            this,
+            this.webProvider,
+            this.author.removeSubDomain(),
+          )
+        : new VoidStrategy(),
     ];
     return await this.executeStrategies(strategies);
   }
@@ -214,7 +233,7 @@ export default class ProfilePictureFetcher {
       new ContactsStrategy(this, this.author),
       new CacheStrategy(this, this.author.getEmail()),
       new OnlineStrategy(this, this.gravatarProvider, this.author),
-      new OnlineStrategy(this, this.libravatarProvider, this.author)
+      new OnlineStrategy(this, this.libravatarProvider, this.author),
     ];
     return await this.executeStrategies(strategies);
   }
@@ -245,9 +264,11 @@ export default class ProfilePictureFetcher {
    * @returns {Promise<string|File|null>} URL or File object of the avatar or null if not found
    */
   async getAvatar(format = "url") {
-    let blob = await this.getAvatarBlob();
+    const blob = await this.getAvatarBlob();
     if (blob) {
-      return format === "file" ? this.blobToFile(blob) : await this.blobToUrl(blob);
+      return format === "file"
+        ? this.blobToFile(blob)
+        : await this.blobToUrl(blob);
     }
     return null;
   }

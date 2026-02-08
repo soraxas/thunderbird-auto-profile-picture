@@ -1,4 +1,4 @@
-import Provider from './Provider.js';
+import Provider from "./Provider.js";
 
 export default class FaviconWebpageProvider extends Provider {
   constructor(wdow) {
@@ -8,36 +8,37 @@ export default class FaviconWebpageProvider extends Provider {
 
   async getUrl(mail) {
     const domain = mail.getDomain();
-    const response = await this.wdow.fetch(
-      `https://${domain}`,
-        { signal: AbortSignal.timeout(5000) }
-    );
+    const response = await this.wdow.fetch(`https://${domain}`, {
+      signal: AbortSignal.timeout(5000),
+    });
     const html = await response.text();
     let favicon = html.match(/<link[^>]*rel="icon"[^>]*>/);
     if (!favicon) {
-        favicon = html.match(/<link[^>]*rel="shortcut icon"[^>]*>/);
+      favicon = html.match(/<link[^>]*rel="shortcut icon"[^>]*>/);
     }
     if (!favicon) {
-        favicon = html.match(/<link[^>]*rel="apple-touch-icon"[^>]*>/);
+      favicon = html.match(/<link[^>]*rel="apple-touch-icon"[^>]*>/);
     }
     if (!favicon) {
-        favicon = html.match(/<link[^>]*rel="apple-touch-icon-precomposed"[^>]*>/);
+      favicon = html.match(
+        /<link[^>]*rel="apple-touch-icon-precomposed"[^>]*>/,
+      );
     }
     if (!favicon) {
-        favicon = html.match(/<link[^>]*rel="mask-icon"[^>]*>/);
+      favicon = html.match(/<link[^>]*rel="mask-icon"[^>]*>/);
     }
     if (!favicon) {
-        return false;
+      return false;
     }
-    
+
     const faviconUrl = favicon[0].match(/href="([^"]*)"/)[1];
-    
+
     if (!faviconUrl) return false;
 
     if (faviconUrl.startsWith("http")) {
       return faviconUrl;
     } else {
-        return `https://${domain}${faviconUrl}`;
+      return `https://${domain}${faviconUrl}`;
     }
   }
 }

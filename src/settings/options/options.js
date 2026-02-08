@@ -1,13 +1,13 @@
+import Author from "../../src/Author.js";
 import CacheStorage from "../../src/CacheStorage.js";
 import ProfilePictureFetcher from "../../src/ProfilePictureFetcher.js";
-import Author from "../../src/Author.js";
 import SettingsManager from "../SettingsManager.js";
 
 const cacheSizeElement = document.getElementById("cacheSize");
 const clearCacheButton = document.getElementById("clearCache");
 const inboxListCheckbox = document.getElementById("inboxList");
 const contactsIntegrationCheckbox = document.getElementById(
-  "contactsIntegration"
+  "contactsIntegration",
 );
 const emailInput = document.getElementById("email");
 const fetchButton = document.getElementById("fetchButton");
@@ -135,11 +135,11 @@ async function printCacheSize(domElement) {
   const size = detailedSize.size;
   let iconsText;
   if (iconsCount === 0) {
-    iconsText = " (" + browser.i18n.getMessage("noIcons") + ")";
+    iconsText = ` (${browser.i18n.getMessage("noIcons")})`;
   } else if (iconsCount === 1) {
-    iconsText = " (" + browser.i18n.getMessage("oneIcon") + ")";
+    iconsText = ` (${browser.i18n.getMessage("oneIcon")})`;
   } else {
-    iconsText = " (" + browser.i18n.getMessage("multipleIcons", iconsCount) + ")";
+    iconsText = ` (${browser.i18n.getMessage("multipleIcons", iconsCount)})`;
   }
   domElement.textContent = size + iconsText;
 }
@@ -156,9 +156,11 @@ function initOptions() {
     inboxListCheckbox.checked = inboxListEnabled;
   });
 
-  settingsManager.getContactsIntegrationEnabled().then((contactsIntegrationEnabled) => {
-    contactsIntegrationCheckbox.checked = contactsIntegrationEnabled;
-  });
+  settingsManager
+    .getContactsIntegrationEnabled()
+    .then((contactsIntegrationEnabled) => {
+      contactsIntegrationCheckbox.checked = contactsIntegrationEnabled;
+    });
 }
 
 function setInboxList() {
@@ -167,7 +169,9 @@ function setInboxList() {
 }
 
 function setContactsIntegration() {
-  settingsManager.setContactsIntegrationEnabled(contactsIntegrationCheckbox.checked);
+  settingsManager.setContactsIntegrationEnabled(
+    contactsIntegrationCheckbox.checked,
+  );
   browser.runtime.sendMessage({ action: "refreshSettings" });
 }
 
@@ -178,7 +182,7 @@ function setContactsIntegration() {
 async function getThunderbirdVersion() {
   try {
     const info = await browser.runtime.getBrowserInfo();
-    const majorVersion = parseInt(info.version.split('.')[0], 10);
+    const majorVersion = parseInt(info.version.split(".")[0], 10);
     return majorVersion;
   } catch (error) {
     console.error("Error getting Thunderbird version:", error);
@@ -198,7 +202,9 @@ async function fetchProfilePicture() {
   const url = await fetcher.getAvatar();
 
   if (!url) {
-    profilePictureDiv.textContent = browser.i18n.getMessage("profilePictureNotFound");
+    profilePictureDiv.textContent = browser.i18n.getMessage(
+      "profilePictureNotFound",
+    );
   } else {
     const tbVersion = await getThunderbirdVersion();
     const useCanvas = tbVersion === 145;
@@ -210,7 +216,9 @@ async function fetchProfilePicture() {
       }
     } catch (error) {
       console.error("Error drawing image:", error);
-      profilePictureDiv.textContent = browser.i18n.getMessage("errorDisplayingImage");
+      profilePictureDiv.textContent = browser.i18n.getMessage(
+        "errorDisplayingImage",
+      );
     }
   }
   fetchButton.disabled = false;
@@ -218,16 +226,18 @@ async function fetchProfilePicture() {
 }
 
 function setupLocalization() {
-  for (let node of document.querySelectorAll("[data-l10n-id]")) {
-    let l10nId = node.getAttribute("data-l10n-id");
+  for (const node of document.querySelectorAll("[data-l10n-id]")) {
+    const l10nId = node.getAttribute("data-l10n-id");
     node.textContent = browser.i18n.getMessage(l10nId);
   }
-  for (let node of document.querySelectorAll("[data-l10n-attr-placeholder]")) {
-    let l10nId = node.getAttribute("data-l10n-attr-placeholder");
+  for (const node of document.querySelectorAll(
+    "[data-l10n-attr-placeholder]",
+  )) {
+    const l10nId = node.getAttribute("data-l10n-attr-placeholder");
     node.setAttribute("placeholder", browser.i18n.getMessage(l10nId));
   }
-  for (let node of document.querySelectorAll("[data-l10n-attr-title]")) {
-    let l10nId = node.getAttribute("data-l10n-attr-title");
+  for (const node of document.querySelectorAll("[data-l10n-attr-title]")) {
+    const l10nId = node.getAttribute("data-l10n-attr-title");
     node.setAttribute("title", browser.i18n.getMessage(l10nId));
   }
 }
@@ -240,7 +250,10 @@ async function initialize() {
   initOptions();
   clearCacheButton.addEventListener("click", clearCache);
   inboxListCheckbox.addEventListener("change", setInboxList);
-  contactsIntegrationCheckbox.addEventListener("change", setContactsIntegration);
+  contactsIntegrationCheckbox.addEventListener(
+    "change",
+    setContactsIntegration,
+  );
   fetchButton.addEventListener("click", fetchProfilePicture);
   setupLocalization();
 }

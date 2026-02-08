@@ -13,7 +13,7 @@ export default class ImageConverter {
    * @returns {Promise<File>} - The converted PNG file.
    */
   async svgUrlToFile(svgString) {
-    let fileName = "avatar.png";
+    const fileName = "avatar.png";
     let width = 1000;
     let height = 1000;
     return new Promise((resolve, reject) => {
@@ -21,8 +21,8 @@ export default class ImageConverter {
       const svgDoc = parser.parseFromString(svgString, "image/svg+xml");
       const svgElement = svgDoc.documentElement;
 
-      let viewBox = svgElement.getAttribute("viewBox");
-      let viewBoxValues = viewBox ? viewBox.split(" ").map(Number) : null;
+      const viewBox = svgElement.getAttribute("viewBox");
+      const viewBoxValues = viewBox ? viewBox.split(" ").map(Number) : null;
 
       if (viewBoxValues && viewBoxValues.length === 4) {
         const viewBoxWidth = viewBoxValues[2];
@@ -49,7 +49,7 @@ export default class ImageConverter {
 
       svgString = svgString.replace(
         "<svg",
-        `<svg width="${width}" height="${height}"`
+        `<svg width="${width}" height="${height}"`,
       );
 
       const svgBlob = new Blob([svgString], {
@@ -75,7 +75,7 @@ export default class ImageConverter {
         }, "image/png");
       };
 
-      img.onerror = (e) => {
+      img.onerror = (_e) => {
         URL.revokeObjectURL(svgUrl);
         reject(new Error("Failed to load SVG"));
       };
