@@ -82,6 +82,33 @@ class MailService {
       }
     }
 
+    // Handle addy.io aliases (anonaddy.me, addy.io, anonaddy.com)
+    if (mail && mail.getEmail().match(/@(anonaddy\.me|addy\.io|anonaddy\.com)$/)) {
+      const fullMessage = await browser.messages.getFull(message.id);
+      const originalHeader =
+        fullMessage.headers["x-anonaddy-original-sender"] ||
+        fullMessage.headers["x-addy-original-sender"];
+      if (originalHeader) {
+        return await Author.fromAuthor(originalHeader[0]);
+      }
+
+      // Fallback to parsing the email address if header is not present
+      const email = mail.getEmail();
+      const localPart = email.split("@")[0];
+      const plusIndex = localPart.indexOf("+");
+      if (plusIndex !== -1) {
+        const encoded = localPart.substring(plusIndex + 1);
+        const equalsIndex = encoded.lastIndexOf("=");
+        if (equalsIndex !== -1) {
+          const userPart = encoded.substring(0, equalsIndex);
+          const domainPart = encoded.substring(equalsIndex + 1);
+          if (userPart && domainPart) {
+            return await Author.fromAuthor(`${userPart}@${domainPart}`);
+          }
+        }
+      }
+    }
+
     return mail;
   }
 
