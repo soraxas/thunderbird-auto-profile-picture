@@ -1,13 +1,13 @@
-import CacheStorage from "./src/CacheStorage.js";
-import AvatarService from "./src/AvatarService.js";
-import MailService from "./src/MailService.js";
 import SettingsManager from "./settings/SettingsManager.js";
-import ContactsService from "./src/ContactsService.js";
-import MessagesService from "./src/MessagesService.js";
 import Author from "./src/Author.js";
+import AvatarService from "./src/AvatarService.js";
+import CacheStorage from "./src/CacheStorage.js";
+import ContactsService from "./src/ContactsService.js";
+import MailService from "./src/MailService.js";
+import MessagesService from "./src/MessagesService.js";
 
-let cache = new CacheStorage();
-let settingsManager = new SettingsManager(cache);
+const cache = new CacheStorage();
+const settingsManager = new SettingsManager(cache);
 
 let inboxListEnabled, contactsIntegrationEnabled;
 
@@ -16,7 +16,8 @@ let inboxListEnabled, contactsIntegrationEnabled;
  */
 async function refreshSettings() {
   inboxListEnabled = await settingsManager.getInboxListEnabled();
-  contactsIntegrationEnabled = await settingsManager.getContactsIntegrationEnabled();
+  contactsIntegrationEnabled =
+    await settingsManager.getContactsIntegrationEnabled();
 }
 await refreshSettings();
 
@@ -31,15 +32,15 @@ const messagesService = new MessagesService(mailService, avatarService);
  * @param {Object} result Result object containing data
  */
 async function handleNeedData(tab, result) {
-  let dataPopups = result.data.popupValues;
-  let urlsDict = {};
-  for (let popup of dataPopups) {
-    let mail = popup.mail;
+  const dataPopups = result.data.popupValues;
+  const urlsDict = {};
+  for (const popup of dataPopups) {
+    const mail = popup.mail;
     const author = await Author.fromAuthor(mail);
-    let url = await avatarService.getAvatar(author);
+    const url = await avatarService.getAvatar(author);
     urlsDict[mail] = url;
   }
-  let payload = {
+  const payload = {
     urls: urlsDict,
     data: result.data,
   };
@@ -53,12 +54,12 @@ async function handleNeedData(tab, result) {
  */
 async function displayInTab(tab, messages) {
   let urlsDict = {};
-  for (let message of messages) {
-    let urls = await mailService.getUrl(message, "messageHeader");
+  for (const message of messages) {
+    const urls = await mailService.getUrl(message, "messageHeader");
     urlsDict = { ...urlsDict, ...urls };
   }
-  let urlDictJSON = JSON.stringify(urlsDict);
-  let result = await browser.headerApi.pictureHeaders(tab.id, urlDictJSON);
+  const urlDictJSON = JSON.stringify(urlsDict);
+  const result = await browser.headerApi.pictureHeaders(tab.id, urlDictJSON);
 
   if (result.status === "needData") {
     handleNeedData(tab, result);
@@ -91,36 +92,38 @@ async function displayInboxList(tab) {
  * Initializes event listeners
  */
 function initListeners() {
-  browser.messageDisplay.onMessageDisplayed.addListener(async (tab, message) => {
-    displayInTab(tab, [message]);
-    displayInboxList(tab);
-  });
+  browser.messageDisplay.onMessageDisplayed.addListener(
+    async (tab, message) => {
+      displayInTab(tab, [message]);
+      displayInboxList(tab);
+    },
+  );
 
   browser.messageDisplay.onMessagesDisplayed.addListener(
     async (tab, messages) => {
       displayInTab(tab, messages);
-    }
+    },
   );
 
   browser.mailTabs.onDisplayedFolderChanged.addListener((tab) => {
     displayInboxList(tab);
   });
 
-  browser.messages.onNewMailReceived.addListener(async (folder, messages) => {
+  browser.messages.onNewMailReceived.addListener(async (_folder, _messages) => {
     setTimeout(async () => {
       const currentTab = await browser.tabs.getCurrent();
       displayInboxList(currentTab);
     }, 1000);
   });
 
-  browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  browser.tabs.onUpdated.addListener(async (_tabId, _changeInfo, tab) => {
     if (tab.type !== "mail") {
       return;
     }
     displayInboxList(tab);
   });
 
-  browser.runtime.onMessage.addListener(async (message, sender) => {
+  browser.runtime.onMessage.addListener(async (message, _sender) => {
     if (message.action === "displayInboxList") {
       displayInboxList();
     } else if (message.action === "refreshSettings") {
@@ -130,9 +133,10 @@ function initListeners() {
 
   messenger.contacts.onCreated.addListener(onContactCreated);
 
-  browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-    if (tab.status === "complete" && tab.type === "special") { // Thunderbird Conversations tab
-      let result = await browser.headerApi.pictureHeaders(tabId, "{}");
+  browser.tabs.onUpdated.addListener(async (tabId, _changeInfo, tab) => {
+    if (tab.status === "complete" && tab.type === "special") {
+      // Thunderbird Conversations tab
+      const result = await browser.headerApi.pictureHeaders(tabId, "{}");
       if (result.status === "needData") {
         handleNeedData(tab, result);
       }

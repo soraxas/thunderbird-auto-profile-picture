@@ -26,7 +26,7 @@ export default class Provider {
    * @returns {Promise<string>} The profile picture URL for the author.
    * @throws {Error} If the method is not implemented.
    */
-  async getUrl(author) {
+  async getUrl(_author) {
     throw new Error("Method 'getUrl(author)' must be implemented.");
   }
 }

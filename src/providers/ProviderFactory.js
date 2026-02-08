@@ -1,18 +1,18 @@
-import GoogleProvider from './Google.js';
-import DuckDuckGoProvider from './DuckDuckGo.js';
-import GravatarProvider from './Gravatar.js';
-import LibravatarProvider from './Libravatar.js';
-import BimiProvider from './Bimi.js';
-import IconHorseProvider from './IconHorse.js';
-import SplitbeeProvider from './Splitbee.js';
-import FaviconWebpageProvider from './FaviconWebpage.js';
-import Provider from './Provider.js';
+import BimiProvider from "./Bimi.js";
+import DuckDuckGoProvider from "./DuckDuckGo.js";
+import FaviconWebpageProvider from "./FaviconWebpage.js";
+import GoogleProvider from "./Google.js";
+import GravatarProvider from "./Gravatar.js";
+import IconHorseProvider from "./IconHorse.js";
+import LibravatarProvider from "./Libravatar.js";
+import Provider from "./Provider.js";
+import SplitbeeProvider from "./Splitbee.js";
 
+// biome-ignore lint/complexity/noStaticOnlyClass: We need to keep the static method for the factory pattern
 export default class ProviderFactory {
-
   /**
    * Creates an instance of a provider based on the given name.
-   * 
+   *
    * @param {string} name - The name of the provider to create.
    * @param {Window} wdow - The window object, required for some providers.
    * @returns {Provider} An instance of the requested provider.

@@ -1,51 +1,63 @@
-import { expect } from 'chai';
-import MailService from '../../src/src/MailService.js';
+import { expect } from "chai";
+import MailService from "../../src/src/MailService.js";
 
-describe('MailService.getCorrespondent - addy.io aliases', () => {
-    const mailService = new MailService({
-        getAvatar: async () => null
-    });
+describe("MailService.getCorrespondent - addy.io aliases", () => {
+  const mailService = new MailService({
+    getAvatar: async () => null,
+  });
 
-    it('should use x-anonaddy-original-sender header when present', async () => {
-        const addyEmail = 'nztka5rx+no-reply=amazon.com@anonaddy.me';
-        const headerEmail = 'original@sender.com';
+  it("should use x-anonaddy-original-sender header when present", async () => {
+    const addyEmail = "nztka5rx+no-reply=amazon.com@anonaddy.me";
+    const headerEmail = "original@sender.com";
 
-        const msg = { author: addyEmail, id: 1, folder: {}, recipients: [] };
-        globalThis.browser = { messages: { getFull: async () => ({ headers: { 'x-anonaddy-original-sender': [headerEmail] } }) } };
-        const result = await mailService.getCorrespondent(msg);
+    const msg = { author: addyEmail, id: 1, folder: {}, recipients: [] };
+    globalThis.browser = {
+      messages: {
+        getFull: async () => ({
+          headers: { "x-anonaddy-original-sender": [headerEmail] },
+        }),
+      },
+    };
+    const result = await mailService.getCorrespondent(msg);
 
-        expect(result.getEmail()).to.equal(headerEmail);
-    });
+    expect(result.getEmail()).to.equal(headerEmail);
+  });
 
-    it('should fallback to parsing when header is missing', async () => {
-        const addyEmail = 'nztka5rx+no-reply=amazon.com@anonaddy.me';
-        const expectedEmail = 'no-reply@amazon.com';
+  it("should fallback to parsing when header is missing", async () => {
+    const addyEmail = "nztka5rx+no-reply=amazon.com@anonaddy.me";
+    const expectedEmail = "no-reply@amazon.com";
 
-        const msg = { author: addyEmail, id: 1, folder: {}, recipients: [] };
-        globalThis.browser = { messages: { getFull: async () => ({ headers: {} }) } };
-        const result = await mailService.getCorrespondent(msg);
+    const msg = { author: addyEmail, id: 1, folder: {}, recipients: [] };
+    globalThis.browser = {
+      messages: { getFull: async () => ({ headers: {} }) },
+    };
+    const result = await mailService.getCorrespondent(msg);
 
-        expect(result.getEmail()).to.equal(expectedEmail);
-    });
+    expect(result.getEmail()).to.equal(expectedEmail);
+  });
 
-    it('should handle addy.io domain aliases', async () => {
-        const addyEmail = 'alias+support=example.org@addy.io';
-        const expectedEmail = 'support@example.org';
+  it("should handle addy.io domain aliases", async () => {
+    const addyEmail = "alias+support=example.org@addy.io";
+    const expectedEmail = "support@example.org";
 
-        const msg = { author: addyEmail, id: 1, folder: {}, recipients: [] };
-        globalThis.browser = { messages: { getFull: async () => ({ headers: {} }) } };
-        const result = await mailService.getCorrespondent(msg);
+    const msg = { author: addyEmail, id: 1, folder: {}, recipients: [] };
+    globalThis.browser = {
+      messages: { getFull: async () => ({ headers: {} }) },
+    };
+    const result = await mailService.getCorrespondent(msg);
 
-        expect(result.getEmail()).to.equal(expectedEmail);
-    });
+    expect(result.getEmail()).to.equal(expectedEmail);
+  });
 
-    it('should fallback to original for invalid addy.io pattern', async () => {
-        const invalidAddyEmail = 'nztka5rx@anonaddy.me';
+  it("should fallback to original for invalid addy.io pattern", async () => {
+    const invalidAddyEmail = "nztka5rx@anonaddy.me";
 
-        const msg = { author: invalidAddyEmail, id: 1, folder: {}, recipients: [] };
-        globalThis.browser = { messages: { getFull: async () => ({ headers: {} }) } };
-        const result = await mailService.getCorrespondent(msg);
+    const msg = { author: invalidAddyEmail, id: 1, folder: {}, recipients: [] };
+    globalThis.browser = {
+      messages: { getFull: async () => ({ headers: {} }) },
+    };
+    const result = await mailService.getCorrespondent(msg);
 
-        expect(result.getEmail()).to.equal(invalidAddyEmail);
-    });
+    expect(result.getEmail()).to.equal(invalidAddyEmail);
+  });
 });

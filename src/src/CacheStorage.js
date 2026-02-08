@@ -7,13 +7,13 @@ export default class CacheStorage {
    * @throws {Error} - If the icon is not found in the cache.
    */
   async getIcon(key, type = "") {
-    const fileKey = "FILE_" + key;
+    const fileKey = `FILE_${key}`;
     const fileStorage = await browser.storage.local.get(fileKey);
     if (!fileStorage[fileKey]) {
       throw new Error("File not found in cache");
     }
     const fileBuffer = fileStorage[fileKey];
-    let blob = new Blob([fileBuffer], { type: type });
+    const blob = new Blob([fileBuffer], { type: type });
     return blob;
   }
 
@@ -24,7 +24,7 @@ export default class CacheStorage {
    * @returns {Promise<void>}
    */
   async saveIcon(key, blob) {
-    const fileKey = "FILE_" + key;
+    const fileKey = `FILE_${key}`;
     const buffer = await blob.arrayBuffer();
     await browser.storage.local.set({ [fileKey]: buffer });
   }
@@ -42,7 +42,7 @@ export default class CacheStorage {
     try {
       const json = JSON.parse(storage[key]);
       return json;
-    } catch (error) {
+    } catch (_error) {
       return storage[key];
     }
   }
@@ -80,12 +80,12 @@ export default class CacheStorage {
     const storage = await browser.storage.local.get();
     let bytes = 0;
     let iconsCount = 0;
-    for (let key in storage) {
+    for (const key in storage) {
       if (key.startsWith("SETTINGS_")) {
         continue;
       }
       bytes += key.length;
-      let value = storage[key];
+      const value = storage[key];
       if (value instanceof ArrayBuffer) {
         bytes += value.byteLength;
         iconsCount++;
@@ -108,12 +108,17 @@ export default class CacheStorage {
     if (bytes === 0 || !bytes) {
       return "empty";
     }
-    try { // only for Thunderbird 128+
+    try {
+      // only for Thunderbird 128+
       const cacheSize = await browser.messengerUtilities.formatFileSize(bytes);
       return cacheSize;
-    } catch (error) {}
+    } catch (_error) {}
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return (bytes / Math.pow(1024, i)).toFixed(2) * 1 + " " + ["B", "KB", "MB", "GB", "TB"][i];
+    return (
+      (bytes / 1024 ** i).toFixed(2) * 1 +
+      " " +
+      ["B", "KB", "MB", "GB", "TB"][i]
+    );
   }
 
   /**
@@ -134,7 +139,7 @@ export default class CacheStorage {
    */
   async clearCache() {
     const storage = await browser.storage.local.get();
-    for (let key in storage) {
+    for (const key in storage) {
       if (key.startsWith("FILE_") || key.startsWith("ICON_")) {
         await browser.storage.local.remove(key);
       }

@@ -7,7 +7,7 @@
 function getMessageWindow(nativeTab) {
   if (nativeTab instanceof Ci.nsIDOMWindow) {
     return nativeTab.messageBrowser.contentWindow;
-  } else if (nativeTab.mode && nativeTab.mode.name == "mail3PaneTab") {
+  } else if (nativeTab.mode && nativeTab.mode.name === "mail3PaneTab") {
     if (
       nativeTab.chromeBrowser.contentWindow.multiMessageBrowser &&
       !nativeTab.chromeBrowser.contentWindow.multiMessageBrowser.hidden
@@ -16,9 +16,9 @@ function getMessageWindow(nativeTab) {
         .contentWindow;
     }
     return nativeTab.chromeBrowser.contentWindow.messageBrowser.contentWindow;
-  } else if (nativeTab.mode && nativeTab.mode.name == "mailMessageTab") {
+  } else if (nativeTab.mode && nativeTab.mode.name === "mailMessageTab") {
     return nativeTab.chromeBrowser.contentWindow;
-  } else if (nativeTab.browser && nativeTab.browser.contentWindow) {
+  } else if (nativeTab.browser?.contentWindow) {
     return nativeTab.browser.contentWindow;
   } else {
     return null;
@@ -36,11 +36,11 @@ function getContentWindow(nativeTab) {
     return nativeTab.messageBrowser.contentWindow;
   } else if (
     nativeTab.mode &&
-    (nativeTab.mode.name == "mail3PaneTab" ||
-      nativeTab.mode.name == "mail3Pane")
+    (nativeTab.mode.name === "mail3PaneTab" ||
+      nativeTab.mode.name === "mail3Pane")
   ) {
     return nativeTab.chromeBrowser.contentWindow;
-  } else if (nativeTab.browser && nativeTab.browser.contentWindow) {
+  } else if (nativeTab.browser?.contentWindow) {
     return nativeTab.browser.contentWindow;
   } else {
     return nativeTab.browser.contentWindow;
@@ -54,7 +54,7 @@ function getContentWindow(nativeTab) {
  * @returns {Object} - An object containing styleLeftValues and popupValues.
  */
 async function extractMailsThunderbirdConversation(window) {
-  let { document } = window;
+  const { document } = window;
   const popupContainer = document.getElementById("popup-container");
   let popups = popupContainer.childNodes;
 
@@ -73,7 +73,7 @@ async function extractMailsThunderbirdConversation(window) {
 
   /**
    * Extracts the email address from a popup.
-   * 
+   *
    * @param {HTMLElement} popup - The popup element.
    * @returns {string|null} - The email address or null if not found.
    */
@@ -85,18 +85,18 @@ async function extractMailsThunderbirdConversation(window) {
     return null;
   }
 
-  let styleLeftValues = {};
-  let popupValues = [];
+  const styleLeftValues = {};
+  const popupValues = [];
 
-  for (let popup of popups) {
-    let styleLeft = popup.style.left;
+  for (const popup of popups) {
+    const styleLeft = popup.style.left;
     if (styleLeftValues[styleLeft]) {
       styleLeftValues[styleLeft]++;
     } else {
       styleLeftValues[styleLeft] = 1;
     }
 
-    let mail = extractMailFromPopup(popup);
+    const mail = extractMailFromPopup(popup);
     popupValues.push({
       left: styleLeft,
       mail: mail,
@@ -117,7 +117,7 @@ function getThunderbirdVersion() {
   try {
     const appInfo = Services.appinfo;
     const version = appInfo.version;
-    const majorVersion = parseInt(version.split('.')[0], 10);
+    const majorVersion = parseInt(version.split(".")[0], 10);
     return majorVersion;
   } catch (error) {
     console.error("Error getting Thunderbird version:", error);
@@ -129,7 +129,8 @@ function getThunderbirdVersion() {
 const AVATAR_CLASS = "autoprofilepicture-item";
 const AVATAR_DATA_QUERY = `[data-auto-profile-picture="true"], .${AVATAR_CLASS}, .autoprofilepictureimg`;
 const SVG_DATA_PREFIX = "data:image/svg+xml";
-const DEFAULT_FALLBACK_ICON = "chrome://messenger/skin/addressbook/icons/contact-generic.svg";
+const DEFAULT_FALLBACK_ICON =
+  "chrome://messenger/skin/addressbook/icons/contact-generic.svg";
 const INITIALS_PREFIX = "//INITIAL:";
 const DATA_URL_REGEX = /^data:([^;,]+)(;base64)?,(.*)$/;
 const ROW_AVATAR_REFERENCE = Symbol("autoProfilePictureRowAvatar");
@@ -187,7 +188,7 @@ function getExtensionRecipientAvatar(row) {
     return null;
   }
   const cached = row[ROW_AVATAR_REFERENCE];
-  if (cached && cached.isConnected) {
+  if (cached?.isConnected) {
     return cached;
   }
   const existing = row.querySelector(EXTENSION_AVATAR_SELECTOR);
@@ -327,7 +328,10 @@ function determinePayloadType(value) {
   return hasInitialsValue(value) ? "initials" : "image";
 }
 
-function rememberAvatarMetadata(element, { identifier, type, value, color = null }) {
+function rememberAvatarMetadata(
+  element,
+  { identifier, type, value, color = null },
+) {
   if (!element) {
     return;
   }
@@ -347,7 +351,7 @@ function rememberAvatarMetadata(element, { identifier, type, value, color = null
 
 function shouldSkipAvatarUpdate(
   element,
-  { identifier, type, value, color = null, isTemporary = false }
+  { identifier, type, value, color = null, isTemporary = false },
 ) {
   if (!element || !identifier) {
     return false;
@@ -424,7 +428,9 @@ async function drawDataUrlToCanvas(dataUrl, canvas, width, height, win) {
     const isBase64 = matches[2] === ";base64";
     const payload = matches[3];
     const atobFn = win.atob || atob;
-    const binaryString = isBase64 ? atobFn(payload) : decodeURIComponent(payload);
+    const binaryString = isBase64
+      ? atobFn(payload)
+      : decodeURIComponent(payload);
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
       bytes[i] = binaryString.charCodeAt(i);
@@ -466,9 +472,11 @@ async function installConversation(window, payload) {
         avatar.appendChild(canvas);
         drawStaticImageToCanvas(canvas, DEFAULT_FALLBACK_ICON, 48);
       } else {
-        avatar.appendChild(createAvatarImage(document, DEFAULT_FALLBACK_ICON, {
-          alt: "Default contact picture"
-        }));
+        avatar.appendChild(
+          createAvatarImage(document, DEFAULT_FALLBACK_ICON, {
+            alt: "Default contact picture",
+          }),
+        );
       }
       return;
     }
@@ -484,7 +492,7 @@ async function installConversation(window, payload) {
 
   async function replaceAuthorPictureInMessage(message, url) {
     if (!url || url === "") {
-      let wrongInitials = message.querySelector("abbr.auto-profile-picture");
+      const wrongInitials = message.querySelector("abbr.auto-profile-picture");
       if (wrongInitials) {
         wrongInitials.classList.remove("auto-profile-picture");
         wrongInitials.classList.add("contactInitials");
@@ -497,7 +505,9 @@ async function installConversation(window, payload) {
     }
 
     if (useCanvas) {
-      let targetElement = message.querySelector(".contactInitials") || message.querySelector(".auto-profile-picture");
+      const targetElement =
+        message.querySelector(".contactInitials") ||
+        message.querySelector(".auto-profile-picture");
       if (targetElement) {
         targetElement.classList.remove("contactInitials");
         targetElement.classList.add("contactAvatar");
@@ -517,7 +527,7 @@ async function installConversation(window, payload) {
       }
     } else {
       // TB < 145 and TB 146+: Use background-image approach
-      let contactInitials = message.querySelector(".contactInitials");
+      const contactInitials = message.querySelector(".contactInitials");
       if (contactInitials) {
         contactInitials.classList.remove("contactInitials");
         contactInitials.classList.add("contactAvatar");
@@ -527,7 +537,9 @@ async function installConversation(window, payload) {
         contactInitials.style.backgroundImage = `url("${url}")`;
         contactInitials.textContent = "\u00A0";
       } else {
-        let autoProfilePicture = message.querySelector(".auto-profile-picture");
+        const autoProfilePicture = message.querySelector(
+          ".auto-profile-picture",
+        );
         if (autoProfilePicture) {
           // Clear background color (oklch) when removing initials
           autoProfilePicture.style.background = null;
@@ -540,44 +552,44 @@ async function installConversation(window, payload) {
     }
   }
 
-  let { document } = window;
+  const { document } = window;
 
-  let conversationMailCache = payload.urls;
+  const conversationMailCache = payload.urls;
 
-  let styleLeftValues = payload.data.styleLeftValues;
-  let popupValues = payload.data.popupValues;
+  const styleLeftValues = payload.data.styleLeftValues;
+  const popupValues = payload.data.popupValues;
 
   const popupContainer = document.getElementById("popup-container");
   const popups = popupContainer.querySelectorAll(".fade-popup");
 
   let popupNumber = 0;
-  for (let popup of popups) {
-    let mail = popupValues[popupNumber].mail;
+  for (const popup of popups) {
+    const mail = popupValues[popupNumber].mail;
     if (mail) {
       await insertPictureInPopup(popup, conversationMailCache[mail]);
     }
     popupNumber++;
   }
 
-  let mostCommonLeftValue = Object.keys(styleLeftValues).reduce((a, b) => {
-    if (styleLeftValues[a] == styleLeftValues[b]) {
-      let aParsed = parseFloat(a.replace("px", ""));
-      let bParsed = parseFloat(b.replace("px", ""));
+  const mostCommonLeftValue = Object.keys(styleLeftValues).reduce((a, b) => {
+    if (styleLeftValues[a] === styleLeftValues[b]) {
+      const aParsed = parseFloat(a.replace("px", ""));
+      const bParsed = parseFloat(b.replace("px", ""));
       return aParsed < bParsed ? a : b;
     }
     return styleLeftValues[a] > styleLeftValues[b] ? a : b;
   });
 
-  let popupsWithMostCommonLeftValue = popupValues.filter(
-    (popup) => popup.left === mostCommonLeftValue
+  const popupsWithMostCommonLeftValue = popupValues.filter(
+    (popup) => popup.left === mostCommonLeftValue,
   );
 
-  let messageList = document.getElementById("messageList");
-  let messages = messageList.querySelectorAll(".message");
+  const messageList = document.getElementById("messageList");
+  const messages = messageList.querySelectorAll(".message");
 
   let messageNumber = 0;
-  for (let message of messages) {
-    let mail = popupsWithMostCommonLeftValue[messageNumber].mail;
+  for (const message of messages) {
+    const mail = popupsWithMostCommonLeftValue[messageNumber].mail;
     if (mail) {
       await replaceAuthorPictureInMessage(message, conversationMailCache[mail]);
     }
@@ -610,7 +622,9 @@ async function installOnMessageHeader(window, urls) {
 
   for (const recipientAvatar of recipientAvatars) {
     const hasAvatarClass = recipientAvatar.classList.contains("has-avatar");
-    const isExtensionAvatar = Boolean(recipientAvatar.dataset.autoProfilePictureIdentifier);
+    const isExtensionAvatar = Boolean(
+      recipientAvatar.dataset.autoProfilePictureIdentifier,
+    );
     if (hasAvatarClass && !isExtensionAvatar) {
       result = { status: "success" };
       continue;
@@ -637,7 +651,9 @@ async function installOnMessageHeader(window, urls) {
     if (payloadType === "initials") {
       removeAvatarElements(recipientAvatar);
 
-      let contactInitials = recipientAvatar.querySelector("span.contactInitials");
+      let contactInitials = recipientAvatar.querySelector(
+        "span.contactInitials",
+      );
       if (!contactInitials) {
         contactInitials = document.createElement("span");
       }
@@ -695,7 +711,7 @@ async function installOnMessageHeader(window, urls) {
     return result;
   }
 
-  let popupContainer = document.getElementById("popup-container");
+  const popupContainer = document.getElementById("popup-container");
   if (popupContainer) {
     const dataMails = await extractMailsThunderbirdConversation(window, urls);
     return {
@@ -715,7 +731,7 @@ async function installOnMessageHeader(window, urls) {
  * @param {Object} window - The window object.
  */
 function installCss(window) {
-  let { document } = window;
+  const { document } = window;
   const avatarCss = `
   :root {
     --recipient-avatar-size: 34px;
@@ -782,7 +798,7 @@ function installCss(window) {
   if (document.getElementById("auto-profile-picture-style")) {
     return;
   }
-  let style = document.createElement("style");
+  const style = document.createElement("style");
 
   style.textContent = avatarCss;
   style.id = "auto-profile-picture-style";
@@ -791,12 +807,12 @@ function installCss(window) {
 
 /**
  * Uninstalls CSS styles for avatars.
- * 
+ *
  * @param {Object} window - The window object.
  */
 function uninstallCss(window) {
-  let { document } = window;
-  let style = document.getElementById("auto-profile-picture-style");
+  const { document } = window;
+  const style = document.getElementById("auto-profile-picture-style");
   if (style) {
     style.remove();
   }
@@ -858,7 +874,8 @@ async function installOnRow(document, urlOrObj, row, temporary) {
       recipientAvatar.classList.remove("no-avatar");
 
       removeAvatarElements(recipientAvatar);
-      const existingInitials = recipientAvatar.querySelector(".contactInitials");
+      const existingInitials =
+        recipientAvatar.querySelector(".contactInitials");
       if (existingInitials) {
         existingInitials.remove();
       }
@@ -866,7 +883,8 @@ async function installOnRow(document, urlOrObj, row, temporary) {
       recipientAvatar.style.background = null;
 
       const win = document.defaultView || window;
-      const size = parseInt(win.getComputedStyle(recipientAvatar).width, 10) || 34;
+      const size =
+        parseInt(win.getComputedStyle(recipientAvatar).width, 10) || 34;
       const canvas = createAvatarCanvas(document, size);
       recipientAvatar.appendChild(canvas);
 
@@ -919,7 +937,9 @@ async function installOnRow(document, urlOrObj, row, temporary) {
     let img = recipientAvatar.querySelector(`.${AVATAR_CLASS}`);
     const hasNoImg = !img;
     if (hasNoImg) {
-      img = createAvatarImage(document, "", { xmlns: "http://www.w3.org/1999/xhtml" });
+      img = createAvatarImage(document, "", {
+        xmlns: "http://www.w3.org/1999/xhtml",
+      });
       recipientAvatar.appendChild(img);
     }
 
@@ -993,16 +1013,16 @@ async function installOnRow(document, urlOrObj, row, temporary) {
  */
 async function getRowFirstId(rows) {
   try {
-    let rowKeys = rows.keys();
-    let minimumRowKey = Math.min(...rowKeys);
-    let row = rows.get(minimumRowKey);
-    return parseInt(row.id.replace("threadTree-row", ""));
-  } catch (error) { }
+    const rowKeys = rows.keys();
+    const minimumRowKey = Math.min(...rowKeys);
+    const row = rows.get(minimumRowKey);
+    return parseInt(row.id.replace("threadTree-row", ""), 10);
+  } catch (_error) {}
 
   try {
-    let row = rows[0][1];
-    return parseInt(row.id.replace("threadTree-row", ""));
-  } catch (error) {
+    const row = rows[0][1];
+    return parseInt(row.id.replace("threadTree-row", ""), 10);
+  } catch (_error) {
     return 0;
   }
 }
@@ -1014,17 +1034,17 @@ async function getRowFirstId(rows) {
  * @returns {number} - The total number of messages.
  */
 async function getTotalMessagesView(window) {
-  let { document } = window;
+  const { document } = window;
   try {
     return await window.gFolder.getTotalMessages(false);
-  } catch (e) {
+  } catch (_e) {
     // Fallback handled below: if getTotalMessages fails, try to get count from DOM.
   }
   try {
-    let counter = document.getElementById("threadPaneFolderCount");
-    let data = JSON.parse(counter.dataset.l10nArgs);
+    const counter = document.getElementById("threadPaneFolderCount");
+    const data = JSON.parse(counter.dataset.l10nArgs);
     return data.count;
-  } catch (e) {
+  } catch (_e) {
     return 0;
   }
 }
@@ -1057,9 +1077,10 @@ function removeAvatarFromRow(row) {
  */
 function getExpandedDummyRowsNumber(threadTree, maxIndex) {
   const MSG_VIEW_FLAG_DUMMY = 0x20000000;
-  let dummyRows = 0, previousRowDummy = false;
+  let dummyRows = 0,
+    previousRowDummy = false;
   for (let i = 0; i < maxIndex; i++) {
-    if (Boolean(threadTree._view.getFlagsAt(i) & MSG_VIEW_FLAG_DUMMY)) {
+    if (threadTree._view.getFlagsAt(i) & MSG_VIEW_FLAG_DUMMY) {
       previousRowDummy = true;
     } else {
       if (previousRowDummy) {
@@ -1082,42 +1103,52 @@ function getExpandedDummyRowsNumber(threadTree, maxIndex) {
  * @returns {Promise<Object>} - An object containing the status.
  */
 async function installInboxList(window, urls, rows, offset, temporary) {
-  let { document } = window;
-  let nbInstalled = 0;
+  const { document } = window;
+  let _nbInstalled = 0;
 
-  let threadTree = document.getElementById("threadTree");
+  const threadTree = document.getElementById("threadTree");
 
   // filter out rows that have data-properties="dummy" and aria-expanded="true" for grouped by sort view
-  let removedRows = [];
+  const removedRows = [];
   rows = new Map([...rows].sort((a, b) => a[0] - b[0]));
   const minRowKey = Math.min(...rows.keys());
-  rows = new Map([...rows].filter(([key, value]) => {
-    const dataProperties = value.getAttribute("data-properties");
-    if (dataProperties === "dummy" && value.getAttribute("aria-expanded") === "true") {
-      removedRows.push([key, value]);
-      return false;
-    }
-    if (dataProperties && dataProperties.includes("imapdeleted")) { // filter out deleted rows
-      removedRows.push([key, value]);
-      return false;
-    }
-    return true;
-  }));
+  rows = new Map(
+    [...rows].filter(([key, value]) => {
+      const dataProperties = value.getAttribute("data-properties");
+      if (
+        dataProperties === "dummy" &&
+        value.getAttribute("aria-expanded") === "true"
+      ) {
+        removedRows.push([key, value]);
+        return false;
+      }
+      if (dataProperties?.includes("imapdeleted")) {
+        // filter out deleted rows
+        removedRows.push([key, value]);
+        return false;
+      }
+      return true;
+    }),
+  );
 
-  const removedRowsKeys = removedRows.map(([key, value]) => key);
+  const removedRowsKeys = removedRows.map(([key, _value]) => key);
 
   // reindex map keys and includes removed rows
   const hiddenDummyRows = getExpandedDummyRowsNumber(threadTree, minRowKey);
 
   const indexShift = minRowKey - hiddenDummyRows;
 
-  rows = new Map([...rows].map(([key, value], index) => {
-    if (removedRowsKeys.includes(key - 1)) {
-      let [, removedRow] = removedRows.find(([index, value]) => index === key - 1);
-      return [index + indexShift, [removedRow, value]];
-    }
-    return [index + indexShift, value];
-  }));
+  rows = new Map(
+    [...rows].map(([key, value], index) => {
+      if (removedRowsKeys.includes(key - 1)) {
+        const [, removedRow] = removedRows.find(
+          ([index, _value]) => index === key - 1,
+        );
+        return [index + indexShift, [removedRow, value]];
+      }
+      return [index + indexShift, value];
+    }),
+  );
 
   for (let i = 0; i < urls.length; i++) {
     const currentRow = i + offset;
@@ -1126,7 +1157,7 @@ async function installInboxList(window, urls, rows, offset, temporary) {
     let row = rows.get(currentRow);
 
     if (Array.isArray(row)) {
-      let [removedRow, newRow] = row;
+      const [removedRow, newRow] = row;
       removeAvatarFromRow(removedRow);
       row = newRow;
     }
@@ -1140,10 +1171,10 @@ async function installInboxList(window, urls, rows, offset, temporary) {
       continue;
     }
 
-    let res = await installOnRow(document, url, row, temporary);
+    const res = await installOnRow(document, url, row, temporary);
 
     if (res) {
-      nbInstalled++;
+      _nbInstalled++;
     }
   }
   // console.log("installed", nbInstalled, temporary ? "initials" : "avatars");
@@ -1161,8 +1192,8 @@ function uninstall(window) {
   uninstallCss(window);
 }
 
-let timeoutInitials = null;
-let timeoutInboxList = null;
+const _timeoutInitials = null;
+const _timeoutInboxList = null;
 
 const EVENTS_TO_LISTEN = [
   "viewchange",
@@ -1173,12 +1204,9 @@ const EVENTS_TO_LISTEN = [
   "scroll",
   "change",
   "drop",
-  "click"
+  "click",
 ];
-const EVENTS_TABLE_TO_LISTEN = [
-  "thread-changed",
-  "sort-changed"
-]
+const EVENTS_TABLE_TO_LISTEN = ["thread-changed", "sort-changed"];
 const INITIALS_TIMEOUT = 500;
 const INBOX_LIST_TIMEOUT = 1000;
 
@@ -1222,7 +1250,11 @@ async function handleInboxList(window, payload, threadTree, offset) {
 
     // Only setup event listeners for the first rows to avoid multiple concurrent listeners
     if (offset < 15) {
-      const eventType = await initializeAllEventListeners(threadTree, payload.length, window);
+      const eventType = await initializeAllEventListeners(
+        threadTree,
+        payload.length,
+        window,
+      );
       await new Promise((resolve) => window.setTimeout(resolve, 100));
       return { status: "needReprint", eventType: eventType };
     } else {
@@ -1236,7 +1268,7 @@ async function handleInboxList(window, payload, threadTree, offset) {
 
 /**
  * Initializes event listeners on the thread tree.
- * 
+ *
  * @param {Object} threadTree - The thread tree object.
  * @param {number} payloadLength - The length of the payload.
  * @param {Object} window - The window object.
@@ -1247,11 +1279,11 @@ async function initializeAllEventListeners(threadTree, payloadLength, window) {
   if (threadTree._rows.length === payloadLength) {
     eventsToListen.delete("scroll");
   }
-  let tableThreadTree = threadTree.getElementsByTagName("table")[0];
+  const tableThreadTree = threadTree.getElementsByTagName("table")[0];
 
   const eventType = await Promise.race([
     setupEventListeners(tableThreadTree, EVENTS_TABLE_TO_LISTEN, window),
-    setupEventListeners(threadTree, eventsToListen, window)
+    setupEventListeners(threadTree, eventsToListen, window),
   ]);
   return eventType;
 }
@@ -1281,17 +1313,29 @@ function setupEventListeners(threadTree, eventsToListen, window) {
 
     const observer = new window.MutationObserver((mutations) => {
       for (const mutation of mutations) {
-        if (mutation.target.classList.contains("recipient-avatar") ||
+        if (
+          mutation.target.classList.contains("recipient-avatar") ||
           mutation.target.classList.contains("contactInitials") ||
-          mutation.target.classList.contains("autoprofilepicture-item")) {
+          mutation.target.classList.contains("autoprofilepicture-item")
+        ) {
           // mutations caused by the extension
           continue;
         }
-        if (mutation.type === "childList" && (mutation.removedNodes.length > 0 || mutation.addedNodes.length > 0)) {
+        if (
+          mutation.type === "childList" &&
+          (mutation.removedNodes.length > 0 || mutation.addedNodes.length > 0)
+        ) {
           let isAvatarChange = false;
-          let nodesToCheck = mutation.removedNodes.length > 0 ? mutation.removedNodes : mutation.addedNodes;
-          for (let node of nodesToCheck) {
-            if (node.classList && (node.classList.contains("recipient-avatar") || node.classList.contains("contactInitials"))) {
+          const nodesToCheck =
+            mutation.removedNodes.length > 0
+              ? mutation.removedNodes
+              : mutation.addedNodes;
+          for (const node of nodesToCheck) {
+            if (
+              node.classList &&
+              (node.classList.contains("recipient-avatar") ||
+                node.classList.contains("contactInitials"))
+            ) {
               isAvatarChange = true;
               break;
             }
@@ -1306,7 +1350,11 @@ function setupEventListeners(threadTree, eventsToListen, window) {
         }
       }
     });
-    observer.observe(threadTree, { childList: true, subtree: true, attributes: true });
+    observer.observe(threadTree, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+    });
 
     for (const event of eventsToListen) {
       threadTree.removeEventListener(event, handleEvent);
@@ -1315,7 +1363,7 @@ function setupEventListeners(threadTree, eventsToListen, window) {
   });
 }
 
-var headerApi = class extends ExtensionCommon.ExtensionAPI {
+var _headerApi = class extends ExtensionCommon.ExtensionAPI {
   getAPI(context) {
     return {
       headerApi: {
@@ -1327,9 +1375,9 @@ var headerApi = class extends ExtensionCommon.ExtensionAPI {
          * @returns {Object} - An object containing the status and optional data or error.
          */
         async pictureHeaders(tabId, urlJSON) {
-          let urls = JSON.parse(urlJSON);
-          let { nativeTab } = context.extension.tabManager.get(tabId);
-          let messageBrowserWindow = getMessageWindow(nativeTab);
+          const urls = JSON.parse(urlJSON);
+          const { nativeTab } = context.extension.tabManager.get(tabId);
+          const messageBrowserWindow = getMessageWindow(nativeTab);
           if (messageBrowserWindow) {
             try {
               return await installOnMessageHeader(messageBrowserWindow, urls);
@@ -1354,9 +1402,9 @@ var headerApi = class extends ExtensionCommon.ExtensionAPI {
          * @returns {Object} - An object containing the status and optional data or error.
          */
         async pictureHeadersConversation(tabId, payloadJSON) {
-          let payload = JSON.parse(payloadJSON);
-          let { nativeTab } = context.extension.tabManager.get(tabId);
-          let messageBrowserWindow = getMessageWindow(nativeTab);
+          const payload = JSON.parse(payloadJSON);
+          const { nativeTab } = context.extension.tabManager.get(tabId);
+          const messageBrowserWindow = getMessageWindow(nativeTab);
           if (messageBrowserWindow) {
             try {
               return await installConversation(messageBrowserWindow, payload);
@@ -1386,7 +1434,7 @@ var headerApi = class extends ExtensionCommon.ExtensionAPI {
           tabId,
           urlJSON = "{}",
           offset = 0,
-          initials = false
+          initials = false,
         ) {
           const payload = JSON.parse(urlJSON);
           const { nativeTab } = context.extension.tabManager.get(tabId);
@@ -1408,9 +1456,9 @@ var headerApi = class extends ExtensionCommon.ExtensionAPI {
          * @returns {number} - The ID of the first displayed message.
          */
         async getFirstDisplayedMessageId(tabId) {
-          let { nativeTab } = context.extension.tabManager.get(tabId);
-          let window = nativeTab.chromeBrowser.contentWindow;
-          let threadTree = window.threadTree;
+          const { nativeTab } = context.extension.tabManager.get(tabId);
+          const window = nativeTab.chromeBrowser.contentWindow;
+          const threadTree = window.threadTree;
           return await getRowFirstId(threadTree._rows);
         },
         /**
@@ -1420,40 +1468,44 @@ var headerApi = class extends ExtensionCommon.ExtensionAPI {
          * @returns {number} - The total number of messages.
          */
         async getTotalMessagesCount(tabId) {
-          let { nativeTab } = context.extension.tabManager.get(tabId);
-          let window = nativeTab.chromeBrowser.contentWindow;
+          const { nativeTab } = context.extension.tabManager.get(tabId);
+          const window = nativeTab.chromeBrowser.contentWindow;
           const msgNb = await getTotalMessagesView(window);
           return msgNb;
         },
 
         /**
          * Installs event listeners on the inbox list.
-         * 
+         *
          * @param {number} tabId - The tab ID.
          */
         async installEventListeners(tabId) {
-          let { nativeTab } = context.extension.tabManager.get(tabId);
-          let window = getContentWindow(nativeTab);
-          let threadTree = window.threadTree;
-          const eventType = await initializeAllEventListeners(threadTree, 0, window);
+          const { nativeTab } = context.extension.tabManager.get(tabId);
+          const window = getContentWindow(nativeTab);
+          const threadTree = window.threadTree;
+          const eventType = await initializeAllEventListeners(
+            threadTree,
+            0,
+            window,
+          );
           return eventType;
-        }
+        },
       },
     };
   }
 
-  onShutdown(isAppShutdown) {
-    for (let window of Services.wm.getEnumerator("mail:3pane")) {
-      for (let nativeTab of window.gTabmail.tabInfo) {
-        let messageBrowserWindow = getMessageWindow(nativeTab);
+  onShutdown(_isAppShutdown) {
+    for (const window of Services.wm.getEnumerator("mail:3pane")) {
+      for (const nativeTab of window.gTabmail.tabInfo) {
+        const messageBrowserWindow = getMessageWindow(nativeTab);
         if (messageBrowserWindow) {
           uninstall(messageBrowserWindow);
         }
       }
     }
 
-    for (let window of Services.wm.getEnumerator("mail:messageWindow")) {
-      let messageBrowserWindow = getMessageWindow(window);
+    for (const window of Services.wm.getEnumerator("mail:messageWindow")) {
+      const messageBrowserWindow = getMessageWindow(window);
       if (messageBrowserWindow) {
         uninstall(messageBrowserWindow);
       }
