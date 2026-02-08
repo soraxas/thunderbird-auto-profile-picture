@@ -49,6 +49,19 @@ describe("MailService.getCorrespondent - addy.io aliases", () => {
     expect(result.getEmail()).to.equal(expectedEmail);
   });
 
+  it("should handle prefixed addy.io aliases", async () => {
+    const addyEmail = "alias+no-reply=amazon.com@noam1234.anonaddy.me";
+    const expectedEmail = "no-reply@amazon.com";
+
+    const msg = { author: addyEmail, id: 1, folder: {}, recipients: [] };
+    globalThis.browser = {
+      messages: { getFull: async () => ({ headers: {} }) },
+    };
+    const result = await mailService.getCorrespondent(msg);
+
+    expect(result.getEmail()).to.equal(expectedEmail);
+  });
+
   it("should fallback to original for invalid addy.io pattern", async () => {
     const invalidAddyEmail = "nztka5rx@anonaddy.me";
 

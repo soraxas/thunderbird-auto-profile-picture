@@ -1017,7 +1017,7 @@ async function getRowFirstId(rows) {
     const minimumRowKey = Math.min(...rowKeys);
     const row = rows.get(minimumRowKey);
     return parseInt(row.id.replace("threadTree-row", ""), 10);
-  } catch (_error) { }
+  } catch (_error) {}
 
   try {
     const row = rows[0][1];

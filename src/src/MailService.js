@@ -101,7 +101,11 @@ class MailService {
     }
 
     // Handle addy.io aliases (anonaddy.me, addy.io, anonaddy.com)
-    if (mail?.getEmail().match(/@(anonaddy\.me|addy\.io|anonaddy\.com)$/)) {
+    if (
+      mail
+        ?.getEmail()
+        .match(/@([^.@]+\.)*(anonaddy\.me|addy\.io|anonaddy\.com)$/)
+    ) {
       const fullMessage = await browser.messages.getFull(message.id);
       const originalHeader =
         fullMessage.headers["x-anonaddy-original-sender"] ||
