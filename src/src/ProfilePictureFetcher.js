@@ -1,6 +1,7 @@
 import ProviderFactory from "../providers/ProviderFactory.js";
 import Author from "./Author.js";
 import CacheStorage from "./CacheStorage.js";
+import debug from "./Debug.js";
 import { AvatarStrategy } from "./strategies/AvatarStrategy.js";
 import { CacheStrategy } from "./strategies/CacheStrategy.js";
 import { ContactsStrategy } from "./strategies/ContactsStrategy.js";
@@ -178,10 +179,22 @@ export default class ProfilePictureFetcher {
    * @returns {Blob|string} Blob of the avatar or "notFound" if not found
    */
   async executeStrategies(strategies) {
+    const traceId = debug.nextId();
+    const target = this.domain || this.author.getEmail();
     for (const strategy of strategies) {
+      const label = strategy.strategyName || strategy.constructor.name;
+      const startMark = `strategy-${traceId}-${label}-start`;
+      const endMark = `strategy-${traceId}-${label}-end`;
+      debug.mark(startMark);
       const avatar = await strategy.fetchAvatar();
-      if (avatar) return avatar;
+      debug.mark(endMark);
+      debug.measure(`${label} for ${target}`, startMark, endMark);
+      if (avatar) {
+        debug.log(`Avatar resolved via ${label} for ${target}`);
+        return avatar;
+      }
     }
+    debug.log(`No avatar found for ${target} after ${strategies.length} strategies`);
     return "notFound";
   }
 

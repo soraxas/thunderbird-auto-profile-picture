@@ -9,6 +9,7 @@ const inboxListCheckbox = document.getElementById("inboxList");
 const contactsIntegrationCheckbox = document.getElementById(
   "contactsIntegration",
 );
+const debugLoggingCheckbox = document.getElementById("debugLogging");
 const emailInput = document.getElementById("email");
 const fetchButton = document.getElementById("fetchButton");
 const profilePictureDiv = document.getElementById("profilePicture");
@@ -161,6 +162,10 @@ function initOptions() {
     .then((contactsIntegrationEnabled) => {
       contactsIntegrationCheckbox.checked = contactsIntegrationEnabled;
     });
+
+  settingsManager.getDebugLoggingEnabled().then((debugLoggingEnabled) => {
+    debugLoggingCheckbox.checked = debugLoggingEnabled;
+  });
 }
 
 function setInboxList() {
@@ -172,6 +177,11 @@ function setContactsIntegration() {
   settingsManager.setContactsIntegrationEnabled(
     contactsIntegrationCheckbox.checked,
   );
+  browser.runtime.sendMessage({ action: "refreshSettings" });
+}
+
+function setDebugLogging() {
+  settingsManager.setDebugLoggingEnabled(debugLoggingCheckbox.checked);
   browser.runtime.sendMessage({ action: "refreshSettings" });
 }
 
@@ -254,6 +264,7 @@ async function initialize() {
     "change",
     setContactsIntegration,
   );
+  debugLoggingCheckbox.addEventListener("change", setDebugLogging);
   fetchButton.addEventListener("click", fetchProfilePicture);
   setupLocalization();
 }

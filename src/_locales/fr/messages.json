@@ -63,6 +63,18 @@
     "message": "Cache vidé",
     "description": "Message affiché lorsque le cache est vidé."
   },
+  "debugHeader": {
+    "message": "Débogage",
+    "description": "En-tête de la section de débogage."
+  },
+  "debugLoggingLabel": {
+    "message": "Activer les journaux de performance/débogage",
+    "description": "Libellé pour la case à cocher des journaux de débogage."
+  },
+  "debugLoggingDescription": {
+    "message": "Enregistre des informations de timing (via le profileur Firefox/Thunderbird et la console du navigateur) pour la récupération et l'affichage des photos de profil. N'activez cette option que pour investiguer un problème de performance.",
+    "description": "Description de la fonctionnalité de journaux de débogage."
+  },
   "profilePictureNotFound": {
     "message": "Photo de profil non trouvée",
     "description": "Message affiché lorsque la photo de profil n'est pas trouvée."

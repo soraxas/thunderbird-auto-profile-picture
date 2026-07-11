@@ -1,5 +1,6 @@
 import defaultSettings from "../settings/defaultSettings.js";
 import Author from "./Author.js";
+import debug from "./Debug.js";
 import RecipientInitial from "./RecipientInitial.js";
 
 /**
@@ -59,6 +60,11 @@ class MessagesService {
     const messagesAuthorsSet = await this.getMessagesAuthorsSet(messages);
     const urls = {};
 
+    const traceId = debug.nextId();
+    const startMark = `fetchAvatarsFromMessages-${traceId}-start`;
+    const endMark = `fetchAvatarsFromMessages-${traceId}-end`;
+    debug.mark(startMark);
+
     const avatarPromises = Array.from(messagesAuthorsSet).map(
       async (author) => {
         const identifier = author.getEmail() || author.getAuthor() || "";
@@ -86,6 +92,13 @@ class MessagesService {
     );
 
     await Promise.all(avatarPromises);
+
+    debug.mark(endMark);
+    debug.measure(
+      `fetchAvatarsFromMessages #${traceId} (${messagesAuthorsSet.size} authors)`,
+      startMark,
+      endMark,
+    );
 
     return this.mapMessagesToCorrespondents(messages).then((correspondents) => {
       return correspondents.map((correspondent) => urls[correspondent]);

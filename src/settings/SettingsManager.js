@@ -33,6 +33,14 @@ class SettingsManager {
   async setContactsIntegrationEnabled(value) {
     await this.setSetting("contactsIntegrationEnabled", value);
   }
+
+  async getDebugLoggingEnabled() {
+    return this.getSetting("debugLoggingEnabled");
+  }
+
+  async setDebugLoggingEnabled(value) {
+    await this.setSetting("debugLoggingEnabled", value);
+  }
 }
 
 export default SettingsManager;

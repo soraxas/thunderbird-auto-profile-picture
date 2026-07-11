@@ -44,6 +44,18 @@
       <div><button id="clearCache" data-l10n-id="clearCacheButton">Clear Cache</button></div>
     </div>
   </section>
+  <section id="debug">
+    <h4 data-l10n-id="debugHeader">Debug</h4>
+    <fieldset>
+      <label>
+        <input name="debugLogging" id="debugLogging" type="checkbox" role="switch" />
+        <span data-l10n-id="debugLoggingLabel">Enable performance/debug logging</span>
+      </label>
+    </fieldset>
+    <blockquote>
+      <p data-l10n-id="debugLoggingDescription">Logs timing information (via the Firefox/Thunderbird profiler and the Browser Console) for avatar fetching and rendering. Only enable this when investigating a performance issue.</p>
+    </blockquote>
+  </section>
   <section id="test">
     <h4 data-l10n-id="testHeader">Check a profile picture</h4>
     <fieldset role="group">

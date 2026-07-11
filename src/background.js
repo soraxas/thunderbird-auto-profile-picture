@@ -3,13 +3,14 @@ import Author from "./src/Author.js";
 import AvatarService from "./src/AvatarService.js";
 import CacheStorage from "./src/CacheStorage.js";
 import ContactsService from "./src/ContactsService.js";
+import debug from "./src/Debug.js";
 import MailService from "./src/MailService.js";
 import MessagesService from "./src/MessagesService.js";
 
 const cache = new CacheStorage();
 const settingsManager = new SettingsManager(cache);
 
-let inboxListEnabled, contactsIntegrationEnabled;
+let inboxListEnabled, contactsIntegrationEnabled, debugLoggingEnabled;
 
 /**
  * Refreshes the settings from the SettingsManager
@@ -18,6 +19,13 @@ async function refreshSettings() {
   inboxListEnabled = await settingsManager.getInboxListEnabled();
   contactsIntegrationEnabled =
     await settingsManager.getContactsIntegrationEnabled();
+  debugLoggingEnabled = await settingsManager.getDebugLoggingEnabled();
+  debug.setEnabled(debugLoggingEnabled);
+  try {
+    await browser.headerApi.setDebugLogging(debugLoggingEnabled);
+  } catch (error) {
+    console.warn("Error propagating debug logging setting:", error);
+  }
 }
 await refreshSettings();
 

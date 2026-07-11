@@ -137,6 +137,49 @@ const ROW_AVATAR_REFERENCE = Symbol("autoProfilePictureRowAvatar");
 const RECIPIENT_AVATAR_OWNER = "auto-profile-picture";
 const EXTENSION_AVATAR_SELECTOR = `.recipient-avatar[data-auto-profile-picture-owner="${RECIPIENT_AVATAR_OWNER}"]`;
 
+/**
+ * Toggleable performance tracer for this privileged (parent process) script.
+ * Disabled by default; enabled via the debugLoggingEnabled setting, propagated
+ * from the background page through the setDebugLogging API call.
+ * Marks/measures are recorded on the mail window so they show up in the
+ * Firefox/Thunderbird profiler timeline for that window.
+ */
+let debugLoggingEnabled = false;
+let debugMarkCounter = 0;
+
+function setDebugLoggingState(enabled) {
+  debugLoggingEnabled = !!enabled;
+}
+
+function nextDebugMarkId() {
+  return ++debugMarkCounter;
+}
+
+function debugMark(win, name) {
+  if (!debugLoggingEnabled) return;
+  try {
+    (win?.performance || performance).mark(name);
+  } catch (_error) {
+    // performance API unavailable in this context
+  }
+}
+
+function debugMeasure(win, name, startMark, endMark) {
+  if (!debugLoggingEnabled) return;
+  try {
+    const perf = win?.performance || performance;
+    const measure = perf.measure(name, startMark, endMark);
+    console.debug(`[AutoProfilePicture] ${name}: ${measure.duration.toFixed(1)}ms`);
+  } catch (_error) {
+    // marks may be missing if measure is called out of order
+  }
+}
+
+function debugLog(...args) {
+  if (!debugLoggingEnabled) return;
+  console.debug("[AutoProfilePicture]", ...args);
+}
+
 function hasInitialsValue(value) {
   return typeof value === "string" && value.includes(INITIALS_PREFIX);
 }
@@ -163,6 +206,8 @@ function createAvatarCanvas(doc, size, borderRadius = "50%") {
 
 function createAvatarImage(doc, url, attrs = {}) {
   const img = markAvatarElement(doc.createElement("img"));
+  img.loading = "lazy";
+  img.decoding = "async";
   img.src = url;
   img.alt = attrs.alt || "Auto Profile Picture";
   for (const [attr, value] of Object.entries(attrs)) {
@@ -1106,6 +1151,11 @@ async function installInboxList(window, urls, rows, offset, temporary) {
   const { document } = window;
   let _nbInstalled = 0;
 
+  const traceId = nextDebugMarkId();
+  const startMark = `installInboxList-${traceId}-start`;
+  const endMark = `installInboxList-${traceId}-end`;
+  debugMark(window, startMark);
+
   const threadTree = document.getElementById("threadTree");
 
   // filter out rows that have data-properties="dummy" and aria-expanded="true" for grouped by sort view
@@ -1150,6 +1200,10 @@ async function installInboxList(window, urls, rows, offset, temporary) {
     }),
   );
 
+  let _nbRowMissing = 0;
+  let _nbDummyRow = 0;
+  let _nbSkippedNoUpdate = 0;
+
   for (let i = 0; i < urls.length; i++) {
     const currentRow = i + offset;
     const url = urls[i];
@@ -1163,11 +1217,13 @@ async function installInboxList(window, urls, rows, offset, temporary) {
     }
 
     if (!row) {
+      _nbRowMissing++;
       continue;
     }
 
     if (row.getAttribute("data-properties") === "dummy") {
       removeAvatarFromRow(row);
+      _nbDummyRow++;
       continue;
     }
 
@@ -1175,9 +1231,21 @@ async function installInboxList(window, urls, rows, offset, temporary) {
 
     if (res) {
       _nbInstalled++;
+    } else {
+      _nbSkippedNoUpdate++;
     }
   }
-  // console.log("installed", nbInstalled, temporary ? "initials" : "avatars");
+  debugMark(window, endMark);
+  debugMeasure(
+    window,
+    `installInboxList #${traceId} (offset ${offset}, ${urls.length} rows, ${temporary ? "initials" : "avatars"})`,
+    startMark,
+    endMark,
+  );
+  debugLog(
+    `installed ${_nbInstalled}/${urls.length} rows at offset ${offset}` +
+      ` (rowMissing=${_nbRowMissing}, dummyRow=${_nbDummyRow}, noUpdateNeeded=${_nbSkippedNoUpdate})`,
+  );
   return {
     status: "success",
   };
@@ -1342,6 +1410,13 @@ function setupEventListeners(threadTree, eventsToListen, window) {
           }
           if (isAvatarChange) continue;
 
+          debugLog(
+            `childList mutation triggering reprint: target=<${mutation.target.tagName}` +
+              `${mutation.target.id ? `#${mutation.target.id}` : ""}` +
+              `${mutation.target.className ? `.${mutation.target.className}` : ""}>` +
+              ` +${mutation.addedNodes.length}/-${mutation.removedNodes.length} nodes`,
+          );
+
           cleanup();
           window.setTimeout(() => {
             resolve("childList");
@@ -1490,6 +1565,14 @@ var headerApi = class extends ExtensionCommon.ExtensionAPI {
             window,
           );
           return eventType;
+        },
+        /**
+         * Toggles the performance/debug tracing done by this privileged script.
+         *
+         * @param {boolean} enabled - Whether debug tracing should be enabled.
+         */
+        async setDebugLogging(enabled) {
+          setDebugLoggingState(enabled);
         },
       },
     };
