@@ -1,4 +1,5 @@
 import ProviderFactory from "../providers/ProviderFactory.js";
+import defaultSettings from "../settings/defaultSettings.js";
 import Author from "./Author.js";
 import CacheStorage from "./CacheStorage.js";
 import debug from "./Debug.js";
@@ -174,6 +175,35 @@ export default class ProfilePictureFetcher {
   }
 
   /**
+   * Awaits a strategy's fetchAvatar() promise, but gives up after `ms` and
+   * resolves to null instead, so one slow provider can't stall the whole
+   * strategy chain. The abandoned promise keeps running in the background
+   * (its result still gets cached for next time via saveBlobToCache), it's
+   * just not waited on for this lookup.
+   * @param {Promise} promise The strategy's fetchAvatar() promise.
+   * @param {number} ms Timeout in milliseconds.
+   * @param {string} label Strategy label, for the timeout debug log.
+   * @param {string} target Domain/email being looked up, for the timeout debug log.
+   * @returns {Promise<Blob|string|null>}
+   */
+  withTimeout(promise, ms, label, target) {
+    const guardedPromise = promise.catch((error) => {
+      console.error(`Error in strategy ${label} for ${target}:`, error);
+      return null;
+    });
+    let timeoutId;
+    const timeout = new Promise((resolve) => {
+      timeoutId = setTimeout(() => {
+        debug.log(`${label} for ${target} exceeded ${ms}ms, moving on`);
+        resolve(null);
+      }, ms);
+    });
+    return Promise.race([guardedPromise, timeout]).finally(() => {
+      clearTimeout(timeoutId);
+    });
+  }
+
+  /**
    * Executes a series of strategies to fetch an avatar
    * @param {Array<AvatarStrategy>} strategies Array of strategies to execute
    * @returns {Blob|string} Blob of the avatar or "notFound" if not found
@@ -186,7 +216,12 @@ export default class ProfilePictureFetcher {
       const startMark = `strategy-${traceId}-${label}-start`;
       const endMark = `strategy-${traceId}-${label}-end`;
       debug.mark(startMark);
-      const avatar = await strategy.fetchAvatar();
+      const avatar = await this.withTimeout(
+        strategy.fetchAvatar(),
+        defaultSettings.STRATEGY_TIMEOUT_MS,
+        label,
+        target,
+      );
       debug.mark(endMark);
       debug.measure(`${label} for ${target}`, startMark, endMark);
       if (avatar) {

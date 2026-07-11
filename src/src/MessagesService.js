@@ -52,60 +52,6 @@ class MessagesService {
   }
 
   /**
-   * Fetches avatars for the given messages.
-   * @param {Array} messages - The list of messages.
-   * @returns {Promise<Array>} - The list of avatar URLs.
-   */
-  async fetchAvatarsFromMessages(messages) {
-    const messagesAuthorsSet = await this.getMessagesAuthorsSet(messages);
-    const urls = {};
-
-    const traceId = debug.nextId();
-    const startMark = `fetchAvatarsFromMessages-${traceId}-start`;
-    const endMark = `fetchAvatarsFromMessages-${traceId}-end`;
-    debug.mark(startMark);
-
-    const avatarPromises = Array.from(messagesAuthorsSet).map(
-      async (author) => {
-        const identifier = author.getEmail() || author.getAuthor() || "";
-        const url = await this.avatarService.getAvatar(author);
-
-        if (url && typeof url === "object") {
-          urls[author] = {
-            value: url.value ?? "",
-            color: url.color ?? null,
-            identifier: url.identifier || identifier,
-          };
-          return;
-        }
-
-        if (url) {
-          urls[author] = {
-            value: url,
-            identifier,
-          };
-          return;
-        }
-
-        urls[author] = RecipientInitial.buildInitials(author);
-      },
-    );
-
-    await Promise.all(avatarPromises);
-
-    debug.mark(endMark);
-    debug.measure(
-      `fetchAvatarsFromMessages #${traceId} (${messagesAuthorsSet.size} authors)`,
-      startMark,
-      endMark,
-    );
-
-    return this.mapMessagesToCorrespondents(messages).then((correspondents) => {
-      return correspondents.map((correspondent) => urls[correspondent]);
-    });
-  }
-
-  /**
    * Retrieves initials for the given messages.
    * @param {Array} messages - The list of messages.
    * @returns {Promise<Array<string>>} - The list of initials.
@@ -159,28 +105,104 @@ class MessagesService {
   }
 
   /**
-   * Displays avatars for the given messages.
-   * @param {Array} messages - The list of messages.
-   * @param {number} tabId - The tab ID.
-   * @param {number} offset - The offset.
-   * @param {Function} resolve - The resolve function for the promise.
+   * Builds the avatar/initials payload entry for a single author.
+   * @param {Author} author - The author to build a payload entry for.
+   * @returns {Promise<Object|string>} - The avatar payload or initials for this author.
    */
-  async displayAvatars(messages, tabId, offset, resolve) {
-    const urls = await this.fetchAvatarsFromMessages(messages);
-    resolve();
+  async buildAvatarEntry(author) {
+    const identifier = author.getEmail() || author.getAuthor() || "";
+    const url = await this.avatarService.getAvatar(author);
 
-    const result = await browser.headerApi.pictureInboxList(
-      tabId,
-      JSON.stringify(urls),
-      offset,
-      false,
-    );
+    if (url && typeof url === "object") {
+      return {
+        value: url.value ?? "",
+        color: url.color ?? null,
+        identifier: url.identifier || identifier,
+      };
+    }
+
+    if (url) {
+      return { value: url, identifier };
+    }
+
+    return RecipientInitial.buildInitials(author);
+  }
+
+  /**
+   * Handles the result of a pictureInboxList push, scheduling a reprint if needed.
+   * @param {Object} result - The result returned by browser.headerApi.pictureInboxList.
+   */
+  async handlePictureInboxListResult(result) {
     if (result.status === "needReprint") {
       if (result.eventType === "scroll") {
         this.lastDisplayInboxListCall -= this.WAIT_TIME_MS / 2;
       }
       await this.displayInboxList(null, true);
     }
+  }
+
+  /**
+   * Displays avatars for the given messages, installing each one as soon as
+   * it resolves instead of waiting for the whole subbatch (so one slow
+   * sender can't hold up the others).
+   * @param {Array} messages - The list of messages.
+   * @param {number} tabId - The tab ID.
+   * @param {number} offset - The offset.
+   * @param {Function} resolve - The resolve function for the promise.
+   */
+  async displayAvatars(messages, tabId, offset, resolve) {
+    const correspondents = await this.mapMessagesToCorrespondents(messages);
+    const uniqueAuthors = Array.from(new Set(correspondents));
+    const urls = new Array(messages.length).fill(null);
+
+    const traceId = debug.nextId();
+    const startMark = `fetchAvatarsFromMessages-${traceId}-start`;
+    const endMark = `fetchAvatarsFromMessages-${traceId}-end`;
+    debug.mark(startMark);
+
+    const pushUpdate = (arm) => {
+      browser.headerApi
+        .pictureInboxList(tabId, JSON.stringify(urls), offset, false, arm)
+        .then((result) => this.handlePictureInboxListResult(result))
+        .catch((error) => console.error("Error pushing avatar update:", error));
+    };
+
+    // Coalesce avatars that resolve within the same tick into one push,
+    // rather than firing a DOM update per author.
+    let flushTimer = null;
+    const scheduleFlush = () => {
+      if (flushTimer !== null) return;
+      flushTimer = setTimeout(() => {
+        flushTimer = null;
+        pushUpdate(false);
+      }, 0);
+    };
+
+    const avatarPromises = uniqueAuthors.map(async (author) => {
+      const entry = await this.buildAvatarEntry(author);
+      for (let i = 0; i < correspondents.length; i++) {
+        if (correspondents[i] === author) {
+          urls[i] = entry;
+        }
+      }
+      scheduleFlush();
+    });
+
+    await Promise.all(avatarPromises);
+    resolve();
+
+    debug.mark(endMark);
+    debug.measure(
+      `fetchAvatarsFromMessages #${traceId} (${uniqueAuthors.length} authors)`,
+      startMark,
+      endMark,
+    );
+
+    if (flushTimer !== null) {
+      clearTimeout(flushTimer);
+      flushTimer = null;
+    }
+    pushUpdate(true);
   }
 
   /**
@@ -309,11 +331,32 @@ class MessagesService {
       return;
     }
 
-    await this.processBatch(currentMessages, tabId, messagesOffset);
+    // Only fetch/install avatars for the portion of this page that's within
+    // the visible area plus a buffer - a single page of listed messages can
+    // span well beyond what's actually rendered, and fetching for rows that
+    // aren't on screen just burns latency (and network requests) for
+    // nothing. The rest gets picked up once the user scrolls to it.
+    const VISIBLE_BUFFER = 50;
+    const visibleMessageCount =
+      firstDisplayedMessageId !== undefined
+        ? Math.max(
+            0,
+            Math.min(
+              currentMessages.messages.length,
+              firstDisplayedMessageId + VISIBLE_BUFFER - messagesOffset,
+            ),
+          )
+        : currentMessages.messages.length;
+
+    if (visibleMessageCount > 0) {
+      await this.processBatch(
+        { messages: currentMessages.messages.slice(0, visibleMessageCount) },
+        tabId,
+        messagesOffset,
+      );
+    }
 
     if (hasNextMessages(currentMessages)) {
-      // Stop processing if we have covered the visible area plus a buffer
-      const VISIBLE_BUFFER = 50;
       if (
         firstDisplayedMessageId !== undefined &&
         messagesOffset + currentMessages.messages.length >

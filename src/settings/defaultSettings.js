@@ -8,6 +8,7 @@
  * @property {number} notFoundRefreshIntervalMs - Interval in milliseconds to refresh not found avatars.
  * @property {number} WAIT_TIME_MS - Wait time in milliseconds for displaying the inbox list.
  * @property {number} SUBBATCH_SIZE - Size of the subbatch for processing messages.
+ * @property {number} STRATEGY_TIMEOUT_MS - Max time to wait for a single avatar-fetching strategy before moving on to the next one.
  */
 const defaultSettings = {
   inboxListEnabled: true,
@@ -37,6 +38,7 @@ const defaultSettings = {
   WAIT_TIME_MS: 500,
   SUBBATCH_SIZE: 15,
   MAX_REQUEST_SIZE: 100,
+  STRATEGY_TIMEOUT_MS: 500,
 };
 
 export default defaultSettings;

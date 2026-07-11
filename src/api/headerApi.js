@@ -1305,9 +1305,13 @@ async function handleInitials(window, payload, rows, offset) {
  * @param {Array} payload - The array of avatar URLs.
  * @param {Object} threadTree - The thread tree object.
  * @param {number} offset - The offset for the rows.
+ * @param {boolean} arm - Whether to (re)arm the reprint event listeners for
+ *   this offset. Callers streaming partial/intermediate updates for the same
+ *   subbatch should pass false so only the final push arms listeners -
+ *   otherwise every partial push would set up its own MutationObserver.
  * @returns {Object} - An object containing the status and optional event type.
  */
-async function handleInboxList(window, payload, threadTree, offset) {
+async function handleInboxList(window, payload, threadTree, offset, arm = true) {
   window.clearTimeout(window.timeoutInboxList);
 
   try {
@@ -1317,7 +1321,7 @@ async function handleInboxList(window, payload, threadTree, offset) {
     await installInboxList(window, payload, threadTree._rows, offset, false);
 
     // Only setup event listeners for the first rows to avoid multiple concurrent listeners
-    if (offset < 15) {
+    if (arm && offset < 15) {
       const eventType = await initializeAllEventListeners(
         threadTree,
         payload.length,
@@ -1504,6 +1508,9 @@ var headerApi = class extends ExtensionCommon.ExtensionAPI {
          * @param {string} urlJSON - The JSON string containing avatar URLs or initials.
          * @param {number} offset - The offset for the rows.
          * @param {boolean} initials - A flag indicating whether initials are being installed.
+         * @param {boolean} arm - Whether to (re)arm the reprint event listeners
+         *   for this offset; pass false for intermediate/partial pushes of a
+         *   subbatch that's being streamed in as avatars resolve.
          * @returns {Object} - An object containing the status and optional event type.
          */
         async pictureInboxList(
@@ -1511,6 +1518,7 @@ var headerApi = class extends ExtensionCommon.ExtensionAPI {
           urlJSON = "{}",
           offset = 0,
           initials = false,
+          arm = true,
         ) {
           const payload = JSON.parse(urlJSON);
           const { nativeTab } = context.extension.tabManager.get(tabId);
@@ -1523,7 +1531,7 @@ var headerApi = class extends ExtensionCommon.ExtensionAPI {
             return handleInitials(window, payload, threadTree._rows, offset);
           }
 
-          return handleInboxList(window, payload, threadTree, offset);
+          return handleInboxList(window, payload, threadTree, offset, arm);
         },
         /**
          * Gets the ID of the first displayed message in the thread tree.
