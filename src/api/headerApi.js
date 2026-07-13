@@ -192,6 +192,19 @@ function setAvatarWhiteBackgroundState(enabled) {
       if (contentWindow) {
         applyAvatarWhiteBackgroundClass(contentWindow);
       }
+      // The reading pane / Conversations UI lives in a separate window
+      // from the thread list (contentWindow above), so it needs its own
+      // class toggle to update live rather than only on next render.
+      const messageBrowserWindow = getMessageWindow(nativeTab);
+      if (messageBrowserWindow) {
+        applyAvatarWhiteBackgroundClass(messageBrowserWindow);
+      }
+    }
+  }
+  for (const window of Services.wm.getEnumerator("mail:messageWindow")) {
+    const messageBrowserWindow = getMessageWindow(window);
+    if (messageBrowserWindow) {
+      applyAvatarWhiteBackgroundClass(messageBrowserWindow);
     }
   }
 }
@@ -646,6 +659,8 @@ async function installConversation(window, payload) {
 
   const { document } = window;
 
+  installConversationCss(window);
+
   const conversationMailCache = payload.urls;
 
   const styleLeftValues = payload.data.styleLeftValues;
@@ -918,6 +933,61 @@ function installCss(window) {
 function uninstallCss(window) {
   const { document } = window;
   const style = document.getElementById("auto-profile-picture-style");
+  if (style) {
+    style.remove();
+  }
+}
+
+/**
+ * Installs the (minimal) CSS needed for the white-background-behind-avatars
+ * setting inside the Thunderbird Conversations add-on's own UI, which uses
+ * its own class names (.authorPicture, .contactAvatar) rather than
+ * .recipient-avatar. Deliberately not reusing installCss()'s full
+ * stylesheet here - the card-layout/table-layout/correspondentcol-column
+ * rules are inbox-list-specific and would just be dead weight (and a
+ * specificity risk) against Conversations' own CSS.
+ *
+ * @param {Object} window - The Conversations window object.
+ */
+function installConversationCss(window) {
+  const { document } = window;
+  applyAvatarWhiteBackgroundClass(window);
+  if (document.getElementById("auto-profile-picture-conversation-style")) {
+    return;
+  }
+  const conversationCss = `
+  /* Background goes on the same element/child that paints the avatar
+     image (img/canvas, or the element itself for the background-image
+     case), not a separate ancestor - see installCss()'s equivalent rule
+     for why (avoids a double-clipped-edge ring). replaceAuthorPictureInMessage
+     either sets background-image directly on .contactAvatar (no child) or
+     appends a <canvas> child, never both, so :not(:has(canvas)) keeps
+     exactly one of these active per element instead of painting white on
+     both a container and its own clipped child. */
+  :root.${AVATAR_WHITE_BG_CLASS} .authorPicture img,
+  :root.${AVATAR_WHITE_BG_CLASS} .authorPicture canvas,
+  :root.${AVATAR_WHITE_BG_CLASS} .contactAvatar.auto-profile-picture:not(:has(canvas)),
+  :root.${AVATAR_WHITE_BG_CLASS} .contactAvatar.auto-profile-picture canvas {
+    background-color: #ffffff;
+  }
+  `;
+  const style = document.createElement("style");
+  style.textContent = conversationCss;
+  style.id = "auto-profile-picture-conversation-style";
+  document.head.appendChild(style);
+}
+
+/**
+ * Uninstalls the Conversations-specific CSS installed by
+ * installConversationCss().
+ *
+ * @param {Object} window - The window object.
+ */
+function uninstallConversationCss(window) {
+  const { document } = window;
+  const style = document.getElementById(
+    "auto-profile-picture-conversation-style",
+  );
   if (style) {
     style.remove();
   }
@@ -1486,6 +1556,7 @@ async function installInboxList(window, urls, rows, offset, temporary) {
  */
 function uninstall(window) {
   uninstallCss(window);
+  uninstallConversationCss(window);
 }
 
 const _timeoutInitials = null;
