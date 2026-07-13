@@ -8,6 +8,14 @@ const UK_AUTHOR = "John Doe <john@example.co.uk>";
 const NUMBERED_AUTHOR = "123 John Doe <john@example.com>";
 
 describe("Author", () => {
+  beforeEach(() => {
+    // parse() memoizes by raw string across calls; without clearing this,
+    // a test that mocks a different parseMailboxString behavior for the
+    // same SAMPLE_AUTHOR string as an earlier test would see the earlier
+    // test's cached result instead of its own mock.
+    Author.clearParseCache();
+  });
+
   describe("Constructor", () => {
     it("should create a Mail instance with author and email", () => {
       const mail = new Author(SAMPLE_AUTHOR, SAMPLE_EMAIL);
@@ -89,6 +97,44 @@ describe("Author", () => {
 
       const email = await Author.parse(SAMPLE_AUTHOR);
       expect(email).to.equal("browser@example.com");
+    });
+
+    it("should only call parseMailboxString once for concurrent calls with the same string", async () => {
+      let callCount = 0;
+      globalThis.browser = {
+        messengerUtilities: {
+          parseMailboxString: async () => {
+            callCount++;
+            return [{ email: "cached@example.com" }];
+          },
+        },
+      };
+
+      const [first, second] = await Promise.all([
+        Author.parse(SAMPLE_AUTHOR),
+        Author.parse(SAMPLE_AUTHOR),
+      ]);
+
+      expect(first).to.equal("cached@example.com");
+      expect(second).to.equal("cached@example.com");
+      expect(callCount).to.equal(1);
+    });
+
+    it("should reuse the cached result for a later sequential call", async () => {
+      let callCount = 0;
+      globalThis.browser = {
+        messengerUtilities: {
+          parseMailboxString: async () => {
+            callCount++;
+            return [{ email: "cached@example.com" }];
+          },
+        },
+      };
+
+      await Author.parse(SAMPLE_AUTHOR);
+      await Author.parse(SAMPLE_AUTHOR);
+
+      expect(callCount).to.equal(1);
     });
   });
   describe("Mail properties and basic methods", () => {

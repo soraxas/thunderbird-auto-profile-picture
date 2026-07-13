@@ -254,7 +254,9 @@ export default class ProfilePictureFetcher {
         return avatar;
       }
     }
-    debug.log(`No avatar found for ${target} after ${strategies.length} strategies`);
+    debug.log(
+      `No avatar found for ${target} after ${strategies.length} strategies`,
+    );
     return "notFound";
   }
 

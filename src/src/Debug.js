@@ -32,7 +32,9 @@ class Debug {
     if (!this.enabled) return;
     try {
       const measure = performance.measure(name, startMark, endMark);
-      console.debug(`[AutoProfilePicture] ${name}: ${measure.duration.toFixed(1)}ms`);
+      console.debug(
+        `[AutoProfilePicture] ${name}: ${measure.duration.toFixed(1)}ms`,
+      );
     } catch (_error) {
       // marks may be missing if measure is called out of order
     }

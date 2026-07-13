@@ -152,7 +152,9 @@ function setDebugLoggingState(enabled) {
   // Unconditional (not gated on debugLoggingEnabled) so we can confirm the
   // privileged side actually received this call, independent of whether
   // logging ended up on or off.
-  console.debug(`[AutoProfilePicture] headerApi debug logging set to ${debugLoggingEnabled}`);
+  console.debug(
+    `[AutoProfilePicture] headerApi debug logging set to ${debugLoggingEnabled}`,
+  );
 }
 
 function nextDebugMarkId() {
@@ -173,7 +175,9 @@ function debugMeasure(win, name, startMark, endMark) {
   try {
     const perf = win?.performance || performance;
     const measure = perf.measure(name, startMark, endMark);
-    console.debug(`[AutoProfilePicture] ${name}: ${measure.duration.toFixed(1)}ms`);
+    console.debug(
+      `[AutoProfilePicture] ${name}: ${measure.duration.toFixed(1)}ms`,
+    );
   } catch (_error) {
     // marks may be missing if measure is called out of order
   }
@@ -954,8 +958,8 @@ function installAvatarFillRowHook(window) {
           // Fire-and-forget: the img path installOnRow takes is synchronous
           // (no internal await), so this still paints in the same frame even
           // though we can't await a Promise from inside fillRow.
-          installOnRow(this.ownerDocument, cached, this, false).catch(
-            (error) => console.error("Error installing avatar from cache:", error),
+          installOnRow(this.ownerDocument, cached, this, false).catch((error) =>
+            console.error("Error installing avatar from cache:", error),
           );
         } else {
           // No cached avatar for this sender (or no sender text yet) - clear
@@ -970,7 +974,12 @@ function installAvatarFillRowHook(window) {
         console.error("Error in avatar fillRow hook:", error);
       }
       debugMark(window, hookEndMark);
-      debugMeasure(window, `fillRowHook ${tagName}`, hookStartMark, hookEndMark);
+      debugMeasure(
+        window,
+        `fillRowHook ${tagName}`,
+        hookStartMark,
+        hookEndMark,
+      );
       return result;
     };
     patches[tagName] = { ctor, original };
@@ -1479,7 +1488,13 @@ async function handleInitials(window, payload, rows, offset) {
  *   otherwise every partial push would set up its own MutationObserver.
  * @returns {Object} - An object containing the status and optional event type.
  */
-async function handleInboxList(window, payload, threadTree, offset, arm = true) {
+async function handleInboxList(
+  window,
+  payload,
+  threadTree,
+  offset,
+  arm = true,
+) {
   window.clearTimeout(window.timeoutInboxList);
 
   try {

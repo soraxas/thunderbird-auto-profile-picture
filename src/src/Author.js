@@ -29,6 +29,16 @@ export default class Author {
    * @param {string} author - The author string.
    * @returns {string} - The parsed email address.
    */
+  /**
+   * Clears the parse() memoization cache. Production code never needs
+   * this (the underlying lookup is a pure function of the string), but
+   * tests that swap the mocked browser.messengerUtilities between cases
+   * need it to avoid one test's cached result leaking into another's.
+   */
+  static clearParseCache() {
+    PARSE_CACHE.clear();
+  }
+
   static async parse(author) {
     if (!author) {
       return "";
