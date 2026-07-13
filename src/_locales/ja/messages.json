@@ -47,6 +47,14 @@
     "message": "大きなフォルダでの問題",
     "description": "既知の問題：大きなフォルダでの問題。"
   },
+  "avatarWhiteBackgroundLabel": {
+    "message": "Add a white background behind avatar icons",
+    "description": "Label for the avatar white background checkbox."
+  },
+  "avatarWhiteBackgroundDescription": {
+    "message": "Helps avatars with transparent or dark artwork (e.g. a black logo) stay visible against dark themes.",
+    "description": "Description of the avatar white background feature."
+  },
   "cacheHeader": {
     "message": "キャッシュ",
     "description": "キャッシュセクションのヘッダー。"

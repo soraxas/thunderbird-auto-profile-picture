@@ -4,6 +4,7 @@
  * @property {boolean} inboxListEnabled - Whether the inbox list feature is enabled. MUTABLE.
  * @property {boolean} contactsIntegrationEnabled - Whether the contacts integration feature is enabled. MUTABLE.
  * @property {boolean} debugLoggingEnabled - Whether performance tracing/debug logging is enabled. MUTABLE.
+ * @property {boolean} avatarWhiteBackgroundEnabled - Whether avatar images get a white circular background behind them (helps visibility against dark themes). MUTABLE.
  * @property {Array<string>} publicMails - List of public mail domains.
  * @property {number} notFoundRefreshIntervalMs - Interval in milliseconds to refresh not found avatars.
  * @property {number} WAIT_TIME_MS - Wait time in milliseconds for displaying the inbox list.
@@ -14,6 +15,7 @@ const defaultSettings = {
   inboxListEnabled: true,
   contactsIntegrationEnabled: true,
   debugLoggingEnabled: false,
+  avatarWhiteBackgroundEnabled: true,
   publicMails: [
     "gmail",
     "yahoo",

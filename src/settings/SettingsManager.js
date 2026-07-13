@@ -41,6 +41,14 @@ class SettingsManager {
   async setDebugLoggingEnabled(value) {
     await this.setSetting("debugLoggingEnabled", value);
   }
+
+  async getAvatarWhiteBackgroundEnabled() {
+    return this.getSetting("avatarWhiteBackgroundEnabled");
+  }
+
+  async setAvatarWhiteBackgroundEnabled(value) {
+    await this.setSetting("avatarWhiteBackgroundEnabled", value);
+  }
 }
 
 export default SettingsManager;

@@ -115,6 +115,18 @@
             "optional": true
           }
         ]
+      },
+      {
+        "name": "setAvatarWhiteBackground",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "type": "boolean",
+            "name": "enabled",
+            "optional": true
+          }
+        ]
       }
     ]
   }

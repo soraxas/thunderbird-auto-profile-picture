@@ -136,6 +136,7 @@ const DATA_URL_REGEX = /^data:([^;,]+)(;base64)?,(.*)$/;
 const ROW_AVATAR_REFERENCE = Symbol("autoProfilePictureRowAvatar");
 const RECIPIENT_AVATAR_OWNER = "auto-profile-picture";
 const EXTENSION_AVATAR_SELECTOR = `.recipient-avatar[data-auto-profile-picture-owner="${RECIPIENT_AVATAR_OWNER}"]`;
+const AVATAR_WHITE_BG_CLASS = "auto-profile-picture-white-bg";
 
 /**
  * Toggleable performance tracer for this privileged (parent process) script.
@@ -155,6 +156,44 @@ function setDebugLoggingState(enabled) {
   console.debug(
     `[AutoProfilePicture] headerApi debug logging set to ${debugLoggingEnabled}`,
   );
+}
+
+/**
+ * Whether avatar images get a white circular background behind them.
+ * Defaults to true (matches defaultSettings.avatarWhiteBackgroundEnabled)
+ * so avatars are visible against dark themes even before the setting has
+ * had a chance to propagate from the background page.
+ */
+let avatarWhiteBackgroundEnabled = true;
+
+function applyAvatarWhiteBackgroundClass(window) {
+  try {
+    window.document.documentElement.classList.toggle(
+      AVATAR_WHITE_BG_CLASS,
+      avatarWhiteBackgroundEnabled,
+    );
+  } catch (_error) {
+    // window may not have a document yet
+  }
+}
+
+/**
+ * Toggles the white-background-behind-avatars setting and applies it
+ * immediately to every currently open mail window (not just future ones),
+ * since installCss() only runs once per window.
+ *
+ * @param {boolean} enabled
+ */
+function setAvatarWhiteBackgroundState(enabled) {
+  avatarWhiteBackgroundEnabled = !!enabled;
+  for (const window of Services.wm.getEnumerator("mail:3pane")) {
+    for (const nativeTab of window.gTabmail.tabInfo) {
+      const contentWindow = getContentWindow(nativeTab);
+      if (contentWindow) {
+        applyAvatarWhiteBackgroundClass(contentWindow);
+      }
+    }
+  }
 }
 
 function nextDebugMarkId() {
@@ -806,6 +845,9 @@ function installCss(window) {
   .recipient-avatar.no-avatar {
     background-color: light-dark(#d4d4d8, #52525b);
   }
+  :root.${AVATAR_WHITE_BG_CLASS} .recipient-avatar.has-avatar {
+    background-color: #ffffff;
+  }
   .recipient-avatar {
     & img,
     & svg,
@@ -848,6 +890,7 @@ function installCss(window) {
     top: var(--top-position);
   }
   `;
+  applyAvatarWhiteBackgroundClass(window);
   if (document.getElementById("auto-profile-picture-style")) {
     return;
   }
@@ -1800,6 +1843,14 @@ var headerApi = class extends ExtensionCommon.ExtensionAPI {
          */
         async setDebugLogging(enabled) {
           setDebugLoggingState(enabled);
+        },
+        /**
+         * Toggles the white circular background behind avatar images.
+         *
+         * @param {boolean} enabled - Whether the white background should be shown.
+         */
+        async setAvatarWhiteBackground(enabled) {
+          setAvatarWhiteBackgroundState(enabled);
         },
       },
     };

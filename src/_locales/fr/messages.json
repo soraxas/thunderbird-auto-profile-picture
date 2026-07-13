@@ -47,6 +47,14 @@
     "message": "Difficultés avec les grands dossiers",
     "description": "Problème connu : Difficultés avec les grands dossiers."
   },
+  "avatarWhiteBackgroundLabel": {
+    "message": "Ajouter un fond blanc derrière les icônes d'avatar",
+    "description": "Libellé pour la case à cocher du fond blanc des avatars."
+  },
+  "avatarWhiteBackgroundDescription": {
+    "message": "Aide les avatars avec un visuel transparent ou sombre (par exemple un logo noir) à rester visibles sur les thèmes sombres.",
+    "description": "Description de la fonctionnalité de fond blanc des avatars."
+  },
   "cacheHeader": {
     "message": "Cache",
     "description": "En-tête de la section du cache."

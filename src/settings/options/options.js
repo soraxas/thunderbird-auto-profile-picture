@@ -10,6 +10,9 @@ const contactsIntegrationCheckbox = document.getElementById(
   "contactsIntegration",
 );
 const debugLoggingCheckbox = document.getElementById("debugLogging");
+const avatarWhiteBackgroundCheckbox = document.getElementById(
+  "avatarWhiteBackground",
+);
 const emailInput = document.getElementById("email");
 const fetchButton = document.getElementById("fetchButton");
 const profilePictureDiv = document.getElementById("profilePicture");
@@ -166,6 +169,12 @@ function initOptions() {
   settingsManager.getDebugLoggingEnabled().then((debugLoggingEnabled) => {
     debugLoggingCheckbox.checked = debugLoggingEnabled;
   });
+
+  settingsManager
+    .getAvatarWhiteBackgroundEnabled()
+    .then((avatarWhiteBackgroundEnabled) => {
+      avatarWhiteBackgroundCheckbox.checked = avatarWhiteBackgroundEnabled;
+    });
 }
 
 function setInboxList() {
@@ -182,6 +191,13 @@ function setContactsIntegration() {
 
 function setDebugLogging() {
   settingsManager.setDebugLoggingEnabled(debugLoggingCheckbox.checked);
+  browser.runtime.sendMessage({ action: "refreshSettings" });
+}
+
+function setAvatarWhiteBackground() {
+  settingsManager.setAvatarWhiteBackgroundEnabled(
+    avatarWhiteBackgroundCheckbox.checked,
+  );
   browser.runtime.sendMessage({ action: "refreshSettings" });
 }
 
@@ -265,6 +281,10 @@ async function initialize() {
     setContactsIntegration,
   );
   debugLoggingCheckbox.addEventListener("change", setDebugLogging);
+  avatarWhiteBackgroundCheckbox.addEventListener(
+    "change",
+    setAvatarWhiteBackground,
+  );
   fetchButton.addEventListener("click", fetchProfilePicture);
   setupLocalization();
 }

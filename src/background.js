@@ -26,6 +26,15 @@ async function refreshSettings() {
   } catch (error) {
     console.warn("Error propagating debug logging setting:", error);
   }
+  const avatarWhiteBackgroundEnabled =
+    await settingsManager.getAvatarWhiteBackgroundEnabled();
+  try {
+    await browser.headerApi.setAvatarWhiteBackground(
+      avatarWhiteBackgroundEnabled,
+    );
+  } catch (error) {
+    console.warn("Error propagating avatar white background setting:", error);
+  }
 }
 await refreshSettings();
 
