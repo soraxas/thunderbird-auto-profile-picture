@@ -132,6 +132,20 @@ export default class ProfilePictureFetcher {
         }
       }
 
+      if (!blob.type.startsWith("image/")) {
+        // Some servers return 200 with a non-image body (redirect/error/
+        // parked-domain page, JSON, etc) instead of a real 404. Caching
+        // that as an "avatar" produces a data: URL the <img> element can
+        // never render, and since it's written to the persistent cache it
+        // would keep returning the same broken result on every future
+        // lookup instead of ever letting a later provider succeed. Treat
+        // it like "not found" so the strategy chain falls through.
+        debug.log(
+          `${source} for ${iconDomain} returned non-image content-type "${blob.type}", skipping`,
+        );
+        return null;
+      }
+
       this.saveBlobToCache(blob, iconDomain, source);
 
       return blob;
@@ -161,6 +175,17 @@ export default class ProfilePictureFetcher {
     try {
       if (fileInfos.type === "notFound") {
         return "notFound";
+      }
+      if (!fileInfos.type.startsWith("image/")) {
+        // Entry predates the downloadImage content-type validation (or is
+        // otherwise corrupted) - it's not a real image and would just fail
+        // to render again. Self-heal by dropping it instead of returning
+        // it, so the strategy chain gets a fresh shot at a real avatar.
+        debug.log(
+          `Dropping stale non-image cache entry for ${domain} (was "${fileInfos.type}")`,
+        );
+        this.cache.removeProperty(key);
+        return false;
       }
       const blob = await this.cache.getIcon(fileInfos.path, fileInfos.type);
       if (originalDomain) {

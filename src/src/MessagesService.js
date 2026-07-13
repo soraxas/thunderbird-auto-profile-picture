@@ -151,11 +151,21 @@ class MessagesService {
    * @param {Function} resolve - The resolve function for the promise.
    */
   async displayAvatars(messages, tabId, offset, resolve) {
+    const traceId = debug.nextId();
+    const mapStartMark = `mapMessagesToCorrespondents-${traceId}-start`;
+    const mapEndMark = `mapMessagesToCorrespondents-${traceId}-end`;
+    debug.mark(mapStartMark);
     const correspondents = await this.mapMessagesToCorrespondents(messages);
+    debug.mark(mapEndMark);
+    debug.measure(
+      `mapMessagesToCorrespondents #${traceId} (${messages.length} messages)`,
+      mapStartMark,
+      mapEndMark,
+    );
+
     const uniqueAuthors = Array.from(new Set(correspondents));
     const urls = new Array(messages.length).fill(null);
 
-    const traceId = debug.nextId();
     const startMark = `fetchAvatarsFromMessages-${traceId}-start`;
     const endMark = `fetchAvatarsFromMessages-${traceId}-end`;
     debug.mark(startMark);
@@ -188,8 +198,17 @@ class MessagesService {
       scheduleFlush();
     });
 
-    await Promise.all(avatarPromises);
+    // Resolve as soon as fetches are launched, not once every author's full
+    // provider chain finishes. processSubbatch/processBatch await this
+    // resolve() before processNextMessages() walks to the next page, so
+    // waiting for Promise.all here would gate page-walking behind this
+    // page's slowest provider (e.g. a 500ms libravatar timeout) - across
+    // several pages that serializes into multi-second stalls on a big jump.
+    // Avatars for this page keep streaming in afterwards via
+    // scheduleFlush/pushUpdate regardless of when we resolve.
     resolve();
+
+    await Promise.all(avatarPromises);
 
     debug.mark(endMark);
     debug.measure(
@@ -258,7 +277,12 @@ class MessagesService {
       maxMessages,
       messagesOffset,
     ) => {
+      const traceId = debug.nextId();
+      const startMark = `fetchAllMessages-${traceId}-start`;
+      const endMark = `fetchAllMessages-${traceId}-end`;
+      debug.mark(startMark);
       let allMessages = [];
+      let pageCount = 0;
       while (
         hasNextMessages(currentMessages) &&
         allMessages.length + messagesOffset < maxMessages
@@ -268,8 +292,15 @@ class MessagesService {
         }
         allMessages = allMessages.concat(currentMessages.messages);
         currentMessages = await this.getNextMessages(currentMessages);
+        pageCount++;
       }
       allMessages = allMessages.concat(currentMessages.messages);
+      debug.mark(endMark);
+      debug.measure(
+        `fetchAllMessages #${traceId} (${pageCount} pages to reach ${maxMessages})`,
+        startMark,
+        endMark,
+      );
       return { messages: allMessages, id: currentMessages.id };
     };
 
@@ -335,9 +366,22 @@ class MessagesService {
     // the visible area plus a buffer - a single page of listed messages can
     // span well beyond what's actually rendered, and fetching for rows that
     // aren't on screen just burns latency (and network requests) for
-    // nothing. The rest gets picked up once the user scrolls to it.
+    // nothing. The rest gets picked up once the user scrolls to it. The
+    // window starts at the viewport itself (not the top of the page), so a
+    // scroll to row 490 prioritizes rows 490+ instead of re-processing
+    // everything from row 0 first.
     const VISIBLE_BUFFER = 50;
-    const visibleMessageCount =
+    const visibleStartIndex =
+      firstDisplayedMessageId !== undefined
+        ? Math.max(
+            0,
+            Math.min(
+              currentMessages.messages.length,
+              firstDisplayedMessageId - messagesOffset,
+            ),
+          )
+        : 0;
+    const visibleEndIndex =
       firstDisplayedMessageId !== undefined
         ? Math.max(
             0,
@@ -348,11 +392,16 @@ class MessagesService {
           )
         : currentMessages.messages.length;
 
-    if (visibleMessageCount > 0) {
+    if (visibleEndIndex > visibleStartIndex) {
       await this.processBatch(
-        { messages: currentMessages.messages.slice(0, visibleMessageCount) },
+        {
+          messages: currentMessages.messages.slice(
+            visibleStartIndex,
+            visibleEndIndex,
+          ),
+        },
         tabId,
-        messagesOffset,
+        messagesOffset + visibleStartIndex,
       );
     }
 

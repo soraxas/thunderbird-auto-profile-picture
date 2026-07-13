@@ -149,6 +149,10 @@ let debugMarkCounter = 0;
 
 function setDebugLoggingState(enabled) {
   debugLoggingEnabled = !!enabled;
+  // Unconditional (not gated on debugLoggingEnabled) so we can confirm the
+  // privileged side actually received this call, independent of whether
+  // logging ended up on or off.
+  console.debug(`[AutoProfilePicture] headerApi debug logging set to ${debugLoggingEnabled}`);
 }
 
 function nextDebugMarkId() {
@@ -864,6 +868,134 @@ function uninstallCss(window) {
 }
 
 /**
+ * Cache of avatar/initials payloads keyed by lowercased sender email,
+ * populated as batches arrive from the background script (see
+ * installInboxList). Confirmed empirically: the sender text a row already
+ * renders is always "Display Name <email>" (or a bare email), and the email
+ * always matches the `identifier` our payloads carry - so this lets the
+ * fillRow hook below install the correct avatar synchronously, in the same
+ * frame as the row's own text, for any sender we've already fetched. Cold
+ * senders self-heal into a hit the moment their async fetch lands and the
+ * next pictureInboxList batch repopulates this cache.
+ */
+const SENDER_AVATAR_CACHE = new Map();
+
+/**
+ * Extracts and normalizes the email address from a row's rendered sender
+ * text ("Display Name <email>" or a bare email), for looking up
+ * SENDER_AVATAR_CACHE.
+ *
+ * @param {string} senderText - The sender text a row already rendered.
+ * @returns {string|null} - The lowercased email, or null if none found.
+ */
+function extractSenderEmail(senderText) {
+  if (!senderText) {
+    return null;
+  }
+  const match = senderText.match(/<([^>]+)>/);
+  const email = (match ? match[1] : senderText).trim().toLowerCase();
+  return email || null;
+}
+
+/**
+ * Patches ThreadRow/ThreadCard's fillRow() - the exact method Thunderbird
+ * uses to rebind a recycled row to new data (see tree-view.mjs / thread-row.mjs
+ * / thread-card.mjs) - so avatars install synchronously in the same frame
+ * Thunderbird refreshes a row's own text, instead of waiting on an
+ * out-of-band DOM-mutation-triggered reprint. Tracks patched constructors
+ * per-window so it can be safely unpatched in onShutdown and isn't
+ * re-applied on every call.
+ *
+ * @param {Object} window - The content window (mail 3-pane content window).
+ */
+const FILL_ROW_HOOK_TAGS = ["thread-row", "thread-card"];
+const FILL_ROW_PATCHED_WINDOWS = new WeakMap();
+
+function installAvatarFillRowHook(window) {
+  if (FILL_ROW_PATCHED_WINDOWS.has(window)) {
+    return;
+  }
+  const patches = {};
+  for (const tagName of FILL_ROW_HOOK_TAGS) {
+    const ctor = window.customElements.get(tagName);
+    if (!ctor) {
+      debugLog(
+        `fillRow hook: no "${tagName}" custom element registered in this window`,
+      );
+      continue;
+    }
+    const original = ctor.prototype.fillRow;
+    ctor.prototype.fillRow = function patchedFillRow(...args) {
+      const result = original.apply(this, args);
+      const hookTraceId = nextDebugMarkId();
+      const hookStartMark = `fillRowHook-${hookTraceId}-start`;
+      const hookEndMark = `fillRowHook-${hookTraceId}-end`;
+      debugMark(window, hookStartMark);
+      try {
+        // Dummy rows (sort-group headers in grouped views) return early from
+        // the native fillRow() before touching senderLine.textContent, so a
+        // recycled row keeps the *previous* real message's sender text here.
+        // Without this guard we'd cache-hit on stale text and paint a face
+        // onto a group header.
+        const properties = this.dataset.properties?.split(" ") || [];
+        if (properties.includes("dummy")) {
+          removeAvatarFromRow(this);
+          return result;
+        }
+
+        const senderText =
+          this.senderLine?.textContent ||
+          this.querySelector(".correspondentcol-column")?.textContent ||
+          null;
+        const email = extractSenderEmail(senderText);
+        const cached = email ? SENDER_AVATAR_CACHE.get(email) : undefined;
+
+        if (cached !== undefined) {
+          // Fire-and-forget: the img path installOnRow takes is synchronous
+          // (no internal await), so this still paints in the same frame even
+          // though we can't await a Promise from inside fillRow.
+          installOnRow(this.ownerDocument, cached, this, false).catch(
+            (error) => console.error("Error installing avatar from cache:", error),
+          );
+        } else {
+          // No cached avatar for this sender (or no sender text yet) - clear
+          // whatever avatar this recycled row previously showed. Leaving it
+          // in place would show the *previous* occupant's face on the new
+          // message, which is the exact wrong-avatar flash this hook exists
+          // to prevent. Blank now; the async pipeline fills this cache and a
+          // later pictureInboxList/reprint will install the real one.
+          removeAvatarFromRow(this);
+        }
+      } catch (error) {
+        console.error("Error in avatar fillRow hook:", error);
+      }
+      debugMark(window, hookEndMark);
+      debugMeasure(window, `fillRowHook ${tagName}`, hookStartMark, hookEndMark);
+      return result;
+    };
+    patches[tagName] = { ctor, original };
+  }
+  FILL_ROW_PATCHED_WINDOWS.set(window, patches);
+}
+
+/**
+ * Restores the original fillRow() implementations patched by
+ * installAvatarFillRowHook, for a single window.
+ *
+ * @param {Object} window - The content window to unpatch.
+ */
+function uninstallAvatarFillRowHook(window) {
+  const patches = FILL_ROW_PATCHED_WINDOWS.get(window);
+  if (!patches) {
+    return;
+  }
+  for (const { ctor, original } of Object.values(patches)) {
+    ctor.prototype.fillRow = original;
+  }
+  FILL_ROW_PATCHED_WINDOWS.delete(window);
+}
+
+/**
  * Installs an avatar or initials on a given row element of the inbox list.
  *
  * @param {Document} document - The document object.
@@ -994,6 +1126,35 @@ async function installOnRow(document, urlOrObj, row, temporary) {
       recipientAvatar.classList.add("has-avatar");
       recipientAvatar.classList.remove("no-avatar");
       img.src = url;
+      // Some providers return a URL that resolves fine as a strategy result
+      // but fails to actually decode as an image (bad content-type, dead
+      // link, etc). Without this the row is left showing the img's alt text
+      // ("Auto Profile Picture") instead of gracefully degrading.
+      img.onerror = () => {
+        if (img.src !== url) {
+          // A newer payload has since replaced this src; ignore stale error.
+          return;
+        }
+        debugLog(
+          `Avatar image failed to load for ${identifier || "unknown identifier"}, falling back to initials`,
+        );
+        recipientAvatar.classList.add("no-avatar");
+        recipientAvatar.classList.remove("has-avatar");
+        img.remove();
+        let fallbackInitials =
+          recipientAvatar.querySelector(".contactInitials");
+        if (!fallbackInitials) {
+          fallbackInitials = document.createElement("span");
+          fallbackInitials.classList.add(
+            "contactInitials",
+            "auto-profile-picture",
+          );
+          fallbackInitials.dataset.autoProfilePicture = "true";
+          recipientAvatar.appendChild(fallbackInitials);
+        }
+        fallbackInitials.textContent =
+          (identifier || "").trim()[0]?.toUpperCase() || "?";
+      };
       if (contactInitials) {
         recipientAvatar.removeChild(contactInitials);
         recipientAvatar.style.background = null;
@@ -1208,6 +1369,12 @@ async function installInboxList(window, urls, rows, offset, temporary) {
     const currentRow = i + offset;
     const url = urls[i];
 
+    const identifier = normalizeAvatarPayload(url).identifier;
+    if (identifier) {
+      SENDER_AVATAR_CACHE.set(identifier.toLowerCase(), url);
+    }
+    debugLog(`payload row ${currentRow}: identifier=${identifier}`);
+
     let row = rows.get(currentRow);
 
     if (Array.isArray(row)) {
@@ -1275,6 +1442,7 @@ const EVENTS_TO_LISTEN = [
   "click",
 ];
 const EVENTS_TABLE_TO_LISTEN = ["thread-changed", "sort-changed"];
+const ROW_COUNT_ATTRIBUTE = "aria-rowcount";
 const INITIALS_TIMEOUT = 500;
 const INBOX_LIST_TIMEOUT = 1000;
 
@@ -1339,6 +1507,25 @@ async function handleInboxList(window, payload, threadTree, offset, arm = true) 
 }
 
 /**
+ * Finds the element whose direct children are the row elements themselves,
+ * derived from an actual row the thread tree already tracks (via its
+ * parentElement) rather than guessed from tag names - the row list isn't
+ * always a plain <table>/<tbody> (e.g. Cards View uses a different DOM
+ * structure than Table View), so this has to work for either layout.
+ *
+ * @param {Object} threadTree - The thread tree object (exposes a `_rows` map).
+ * @returns {Object} - The rows container element, or the thread tree itself as a fallback.
+ */
+function findRowsContainer(threadTree) {
+  const rows = threadTree._rows;
+  const firstRow =
+    rows && typeof rows.values === "function"
+      ? rows.values().next().value
+      : undefined;
+  return firstRow?.parentElement || threadTree;
+}
+
+/**
  * Initializes event listeners on the thread tree.
  *
  * @param {Object} threadTree - The thread tree object.
@@ -1353,10 +1540,26 @@ async function initializeAllEventListeners(threadTree, payloadLength, window) {
   }
   const tableThreadTree = threadTree.getElementsByTagName("table")[0];
 
+  const tableListeners = setupEventListeners(
+    tableThreadTree,
+    EVENTS_TABLE_TO_LISTEN,
+    window,
+  );
+  const rowListeners = setupEventListeners(threadTree, eventsToListen, window);
+
   const eventType = await Promise.race([
-    setupEventListeners(tableThreadTree, EVENTS_TABLE_TO_LISTEN, window),
-    setupEventListeners(threadTree, eventsToListen, window),
+    tableListeners.promise,
+    rowListeners.promise,
   ]);
+
+  // Whichever side didn't win the race is now stale - stop it immediately
+  // instead of leaving its MutationObserver/listeners armed until its own
+  // trigger eventually fires on its own. Left unchecked, every reprint cycle
+  // would pile up another live observer reacting to the same DOM changes,
+  // multiplying how many reprints a single unrelated mutation causes.
+  tableListeners.cleanup();
+  rowListeners.cleanup();
+
   return eventType;
 }
 
@@ -1366,73 +1569,71 @@ async function initializeAllEventListeners(threadTree, payloadLength, window) {
  * @param {Object} threadTree - The thread tree object.
  * @param {Set} eventsToListen - The set of events to listen for.
  * @param {Object} window - The window object.
- * @returns {Promise} - A promise that resolves with the event type.
+ * @returns {{promise: Promise, cleanup: Function}} - A promise that resolves
+ *   with the event type, and a cleanup function callers can invoke to tear
+ *   down the listeners/observer early (e.g. once a race is settled).
  */
 function setupEventListeners(threadTree, eventsToListen, window) {
-  return new Promise((resolve) => {
+  let cleanup = () => {};
+  const promise = new Promise((resolve) => {
     const handleEvent = (event) => {
       // console.log("TT resolve", event.type);
       cleanup();
       resolve(event.type);
     };
 
-    const cleanup = () => {
+    cleanup = () => {
       for (const event of eventsToListen) {
         threadTree.removeEventListener(event, handleEvent);
       }
       observer.disconnect();
     };
 
+    // React only to the row count actually changing. aria-rowcount is the
+    // ARIA treegrid attribute reflecting the total row count, and only
+    // changes when rows are genuinely added/removed - confirmed empirically
+    // (it fired exactly once on a delete, and nothing else). Scoping the
+    // observer to just that attribute (attributeFilter) rather than a broad
+    // attributes:true means Gecko never even generates mutation records for
+    // selection/focus/read-state attribute churn, which happens on every
+    // click/arrow-key and would otherwise retrigger a full reprint. childList
+    // on the container itself is kept as a defensive fallback in case some
+    // view rebuilds rows outright instead of updating aria-rowcount.
+    const rowsContainer = findRowsContainer(threadTree);
     const observer = new window.MutationObserver((mutations) => {
       for (const mutation of mutations) {
-        if (
-          mutation.target.classList.contains("recipient-avatar") ||
-          mutation.target.classList.contains("contactInitials") ||
-          mutation.target.classList.contains("autoprofilepicture-item")
-        ) {
-          // mutations caused by the extension
+        const isRowListChange =
+          mutation.type === "childList" &&
+          mutation.target === rowsContainer &&
+          (mutation.addedNodes.length > 0 || mutation.removedNodes.length > 0);
+        const isRowCountChange =
+          mutation.type === "attributes" &&
+          mutation.attributeName === ROW_COUNT_ATTRIBUTE;
+
+        if (!isRowListChange && !isRowCountChange) {
           continue;
         }
-        if (
-          mutation.type === "childList" &&
-          (mutation.removedNodes.length > 0 || mutation.addedNodes.length > 0)
-        ) {
-          let isAvatarChange = false;
-          const nodesToCheck =
-            mutation.removedNodes.length > 0
-              ? mutation.removedNodes
-              : mutation.addedNodes;
-          for (const node of nodesToCheck) {
-            if (
-              node.classList &&
-              (node.classList.contains("recipient-avatar") ||
-                node.classList.contains("contactInitials"))
-            ) {
-              isAvatarChange = true;
-              break;
-            }
-          }
-          if (isAvatarChange) continue;
 
-          debugLog(
-            `childList mutation triggering reprint: target=<${mutation.target.tagName}` +
-              `${mutation.target.id ? `#${mutation.target.id}` : ""}` +
-              `${mutation.target.className ? `.${mutation.target.className}` : ""}>` +
-              ` +${mutation.addedNodes.length}/-${mutation.removedNodes.length} nodes`,
-          );
+        debugLog(
+          `row structure changed: type=${mutation.type} target=<${mutation.target.tagName}` +
+            `${mutation.target.id ? `#${mutation.target.id}` : ""}>` +
+            (mutation.type === "childList"
+              ? ` +${mutation.addedNodes.length}/-${mutation.removedNodes.length} rows`
+              : ` attribute=${mutation.attributeName}`),
+        );
 
-          cleanup();
-          window.setTimeout(() => {
-            resolve("childList");
-          }, 300); // WAIT_TIME_MS - 200
-          break;
-        }
+        cleanup();
+        window.setTimeout(() => {
+          resolve("childList");
+        }, 300); // WAIT_TIME_MS - 200
+        break;
       }
     });
-    observer.observe(threadTree, {
+    observer.observe(rowsContainer, {
       childList: true,
-      subtree: true,
       attributes: true,
+      attributeFilter: [ROW_COUNT_ATTRIBUTE],
+      subtree: true,
     });
 
     for (const event of eventsToListen) {
@@ -1440,6 +1641,8 @@ function setupEventListeners(threadTree, eventsToListen, window) {
       threadTree.addEventListener(event, handleEvent, { once: true });
     }
   });
+
+  return { promise, cleanup: () => cleanup() };
 }
 
 // biome-ignore lint/correctness/noUnusedVariables: Variable name required by the extension API
@@ -1526,6 +1729,7 @@ var headerApi = class extends ExtensionCommon.ExtensionAPI {
           const threadTree = window.threadTree;
 
           installCss(window);
+          installAvatarFillRowHook(window);
 
           if (initials) {
             return handleInitials(window, payload, threadTree._rows, offset);
@@ -1592,6 +1796,16 @@ var headerApi = class extends ExtensionCommon.ExtensionAPI {
         const messageBrowserWindow = getMessageWindow(nativeTab);
         if (messageBrowserWindow) {
           uninstall(messageBrowserWindow);
+        }
+        // installAvatarFillRowHook patches the thread-row/thread-card custom
+        // elements in the content window (the thread list pane), which is a
+        // different window than messageBrowserWindow (the reading pane) -
+        // must be unpatched here specifically or a disabled/updated version
+        // of this extension leaves a dead reference patched into TB's row
+        // rendering path.
+        const contentWindow = getContentWindow(nativeTab);
+        if (contentWindow) {
+          uninstallAvatarFillRowHook(contentWindow);
         }
       }
     }

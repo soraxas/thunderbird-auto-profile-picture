@@ -1,5 +1,13 @@
 import defaultSettings from "../settings/defaultSettings.js";
 
+// Caches in-flight/resolved parseMailboxString lookups by raw author string.
+// Author.parse is a pure function of that string, and parseMailboxString is
+// an IPC round-trip to the parent process (~10ms) - without this, a subbatch
+// with N messages from the same repeated sender pays N round-trips instead
+// of 1. Caching the promise (not just the resolved value) collapses
+// concurrent duplicate calls fired via Promise.all into a single round-trip.
+const PARSE_CACHE = new Map();
+
 /**
  * Class representing a mail object.
  */
@@ -25,19 +33,26 @@ export default class Author {
     if (!author) {
       return "";
     }
-    try {
-      // only for Thunderbird 128+
-      const parsed =
-        await browser.messengerUtilities.parseMailboxString(author);
-      if (parsed) {
-        return parsed[0].email;
-      }
-    } catch (_error) {}
-    const email = author.match(/<(.+)>/);
-    if (email) {
-      return email[1].toLowerCase().trim();
+    if (PARSE_CACHE.has(author)) {
+      return PARSE_CACHE.get(author);
     }
-    return author.toLowerCase().trim();
+    const promise = (async () => {
+      try {
+        // only for Thunderbird 128+
+        const parsed =
+          await browser.messengerUtilities.parseMailboxString(author);
+        if (parsed) {
+          return parsed[0].email;
+        }
+      } catch (_error) {}
+      const email = author.match(/<(.+)>/);
+      if (email) {
+        return email[1].toLowerCase().trim();
+      }
+      return author.toLowerCase().trim();
+    })();
+    PARSE_CACHE.set(author, promise);
+    return promise;
   }
 
   /**

@@ -35,10 +35,15 @@ export default class FaviconWebpageProvider extends Provider {
 
     if (!faviconUrl) return false;
 
+    if (faviconUrl.startsWith("//")) {
+      // Protocol-relative URL (e.g. "//cdn.example.com/favicon.ico") - was
+      // falling into the domain-relative branch below and producing a
+      // broken double-domain URL like "https://example.com//cdn...".
+      return `https:${faviconUrl}`;
+    }
     if (faviconUrl.startsWith("http")) {
       return faviconUrl;
-    } else {
-      return `https://${domain}${faviconUrl}`;
     }
+    return `https://${domain}${faviconUrl.startsWith("/") ? "" : "/"}${faviconUrl}`;
   }
 }
