@@ -845,9 +845,6 @@ function installCss(window) {
   .recipient-avatar.no-avatar {
     background-color: light-dark(#d4d4d8, #52525b);
   }
-  :root.${AVATAR_WHITE_BG_CLASS} .recipient-avatar.has-avatar {
-    background-color: #ffffff;
-  }
   .recipient-avatar {
     & img,
     & svg,
@@ -865,6 +862,18 @@ function installCss(window) {
       width: 100%;
       height: 100%;
     }
+  }
+  /* White background lives on the image/svg/canvas itself, not the
+     .recipient-avatar container - putting it on the container means two
+     independently-anti-aliased edges at the same radius (the container's
+     own background clip, and the child's clip), which don't align at the
+     sub-pixel level and leave a thin ring of the white background peeking
+     past the child's edge. Co-locating the background and the content in
+     the same box clips them together as one edge instead. */
+  :root.${AVATAR_WHITE_BG_CLASS} .recipient-avatar.has-avatar img,
+  :root.${AVATAR_WHITE_BG_CLASS} .recipient-avatar.has-avatar svg,
+  :root.${AVATAR_WHITE_BG_CLASS} .recipient-avatar.has-avatar canvas {
+    background-color: #ffffff;
   }
   .card-layout {
     --placeholder-margin: 4px;
