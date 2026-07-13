@@ -694,6 +694,31 @@ async function installConversation(window, payload) {
   const messageList = document.getElementById("messageList");
   const messages = messageList.querySelectorAll(".message");
 
+  // Diagnostic: checks whether each message row already carries a reliable
+  // identifier directly (which would let us match avatars per-message
+  // instead of via the mostCommonLeftValue heuristic below, which only
+  // works when a thread has at most 2 distinct positions/participants).
+  if (debugLoggingEnabled) {
+    let diagIndex = 0;
+    for (const message of messages) {
+      const directEmail = message.querySelector(
+        ".authorEmailAddress",
+      )?.textContent;
+      const mailtoHref = message
+        .querySelector('a[href^="mailto:"]')
+        ?.getAttribute("href");
+      debugLog(
+        `conversation message ${diagIndex}: directEmail=${directEmail || "none"} mailtoHref=${mailtoHref || "none"}`,
+      );
+      if (!directEmail && !mailtoHref) {
+        debugLog(
+          `conversation message ${diagIndex} outerHTML (first 400 chars): ${message.outerHTML.slice(0, 400)}`,
+        );
+      }
+      diagIndex++;
+    }
+  }
+
   let messageNumber = 0;
   for (const message of messages) {
     const mail = popupsWithMostCommonLeftValue[messageNumber].mail;
